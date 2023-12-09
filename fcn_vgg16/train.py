@@ -9,10 +9,9 @@ from common import TrainLogger,PascalDataloader
 from fcn_vgg16.model import FCN_VGGnet
 import yaml
 
-with open(r'./fcn_vgg16\fcn_vgg16_cfg.yml', 'r') as file:
+with open(os.path.join("fcn_vgg16","fcn_vgg16_cfg.yml"), 'r') as file:
     # Load the YAML content
     cfg = yaml.safe_load(file)
-
 
 if __name__ == "__main__":
     

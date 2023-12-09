@@ -12,7 +12,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
 
-PASCALVOC_ROOT = r"./common\datasets\pascalvoc12"
+PASCALVOC_ROOT = join("common","datasets","pascalvoc12")
 
 PASCAL_VOC_COLORMAP = {
     0: (0, 0, 0),          # Background

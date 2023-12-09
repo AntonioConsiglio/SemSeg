@@ -158,6 +158,7 @@ class ContextManager():
 
         self.epoch += 1
 
+        torch.cuda.empty_cache()
 
     def _calculate_loss(self,pred,target):
 

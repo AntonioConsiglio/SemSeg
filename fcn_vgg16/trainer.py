@@ -61,8 +61,7 @@ class TrainerFCNVgg16(Trainer):
         
         with torch.cuda.amp.autocast(enabled=self.autocast):
             for batch,(images,target) in enumerate(dataloader):
-                if batch == 10:
-                        break
+
                 images,target = images.to(self.device),target.to(self.device)
 
                 preds = self.model(images)
@@ -79,8 +78,7 @@ class TrainerFCNVgg16(Trainer):
         with torch.no_grad():
             with torch.cuda.amp.autocast(enabled=self.autocast):
                 for batch,(images,target) in enumerate(dataloader):
-                    if batch == 10:
-                        break
+
                     images,target = images.to(self.device),target.to(self.device)
 
                     preds = self.model(images)
