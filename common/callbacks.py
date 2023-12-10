@@ -134,7 +134,7 @@ class ContextManager():
 
     def _save_checkpoint(self,**kargs):
 
-        miou,dice = kargs["iou"],kargs["dice"]
+        miou,dice = kargs.get("iou"),kargs.get("dice",0)
         
 
         save_best = False
@@ -156,7 +156,7 @@ class ContextManager():
         if save_best:
             torch.save(checkpoint,os.path.join(self.checkpoints_dir,"best.pt"))
 
-        torch.save(checkpoint,os.path.join(self.checkpoints_dir,"last.pt"))
+        #torch.save(checkpoint,os.path.join(self.checkpoints_dir,"last.pt"))
 
         self.epoch += 1
 
