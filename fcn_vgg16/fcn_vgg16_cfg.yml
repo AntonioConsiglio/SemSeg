@@ -9,7 +9,10 @@ training:
   batch_acc: 1
   autocast: True
   batch_size: 2
-  
+  num_worker: 2
+  pin_memory: False
+
+
   loss_function:
     ce: null
 

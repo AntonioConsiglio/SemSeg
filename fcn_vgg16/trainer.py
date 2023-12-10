@@ -69,7 +69,8 @@ class TrainerFCNVgg16(Trainer):
                 train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
                                                               preds = preds, target = target)
 
-                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics["dice"])
+                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics.get("dice",0))
+
 
     def evaluate_epoch(self,dataloader:tqdm):
         
@@ -86,4 +87,4 @@ class TrainerFCNVgg16(Trainer):
                     train_loss,_,train_avg_metrics = self.context(callbacks.EVAL_BATCH_END,
                                                                 preds = preds, target = target)
 
-                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics["dice"])
+                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics.get("dice",0))

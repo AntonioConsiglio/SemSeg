@@ -36,12 +36,15 @@ class ContextManager():
         os.makedirs(self.checkpoints_dir,exist_ok=True)
 
         if self.task == "segmentation":
-            self.train_metrics = MetricCollection([
-                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
-                            Dice(num_classes=n_classes,average="samples")])
-            self.eval_metrics = MetricCollection([
-                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
-                            Dice(num_classes=n_classes,average="samples")])
+            # self.train_metrics = MetricCollection([
+            #                 JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
+            #                 Dice(num_classes=n_classes,average="samples")])
+            self.train_metrics = JaccardIndex(task="multiclass",num_classes=n_classes,average="none")
+
+            self.eval_metrics = JaccardIndex(task="multiclass",num_classes=n_classes,average="none")
+            # MetricCollection([
+            #                 JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
+            #                 Dice(num_classes=n_classes,average="samples")])
         
         self.loss_fn = get_loss(loss_function).to(self.device)
         self.train_loss_collection = []
@@ -49,7 +52,6 @@ class ContextManager():
         self.epoch = 1
         self.train_batch = 1
         self.best_metric = 0
-        
 
     def __call__(self,callback,**kargs):
         
@@ -181,9 +183,10 @@ class ContextManager():
         if isinstance(pred,(list,tuple)):
             pred = pred[0]
 
-        activ_pred = torch.argmax(pred.detach(),dim=1)
+        with torch.no_grad():
+            activ_pred = torch.argmax(pred,dim=1)
 
-        metrics(activ_pred.cpu(),target.cpu())
+        metrics.update(activ_pred.detach().cpu(),target.detach().cpu())
 
     def _get_average(self,obj,loss=False):
 
@@ -201,7 +204,7 @@ class ContextManager():
                     averages[k] = vals.item()
             return averages 
         
-        averages[keys[0]] = sum(obj)/len(obj)
+        averages[keys[0]] = (sum(obj)/len(obj)).item()
 
         return averages
 
