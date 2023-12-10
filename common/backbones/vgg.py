@@ -17,7 +17,7 @@ class VGGExtractor(nn.Module):
 
         # The input considered here is 320x320 the padding is to make the output to be equal to 16x16
         modules = [ConvBlock(in_channels=in_channels,out_channels=64,
-                             kernel_size=3,padding=97,activation=activation,
+                             kernel_size=3,padding=100,activation=activation,
                              norm=norm)]
         in_channels = 64
         for i in layers_cfg:
@@ -57,6 +57,8 @@ class VGGExtractor(nn.Module):
                 statedict[k] = v
 
             self.load_state_dict(statedict)
+
+            state = self.state_dict()
             return
         
         for m in self.modules():

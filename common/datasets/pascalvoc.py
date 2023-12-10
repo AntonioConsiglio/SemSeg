@@ -43,11 +43,10 @@ PASCALVOC_TRANSFORM = A.Compose([
     A.HorizontalFlip(),
     A.VerticalFlip(),
     A.Rotate((-90,90)),
-    A.RandomScale((-0.3,0.3)),
-    A.PadIfNeeded(min_height=320,min_width=320),
-    A.RandomCrop(320,320),
+    # A.PadIfNeeded(min_height=320,min_width=320),
+    # A.RandomCrop(320,320),
     A.ColorJitter(),
-    A.GridDistortion(),
+    # A.GridDistortion(),
 ])
 
 class PascalDataloader(DataLoader):
@@ -57,8 +56,8 @@ class PascalDataloader(DataLoader):
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
                                     train=train,
                                     transform=PASCALVOC_TRANSFORM,
-                                    mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
-                                    std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+                                    mean = (0.0,0.0,0.0),# (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
+                                    std = (1.0,1.0,1.0))# (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          num_workers=num_workers,

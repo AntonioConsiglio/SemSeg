@@ -26,7 +26,7 @@ if __name__ == "__main__":
     train_dataloader = PascalDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
     
-    eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE*2,
+    eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,train_configuration=cfg)

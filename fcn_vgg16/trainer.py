@@ -20,6 +20,7 @@ class TrainerFCNVgg16(Trainer):
         self.model = model
         self.logger = logger
         self.cfg = train_configuration
+        self.eval_epoc_step = self.cfg.get("validate_after",1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.autocast = train_configuration.get("autocast",True)
         self.context = ContextManager(self.model,self.logger.log_dir,self.cfg,self.device)
@@ -43,11 +44,14 @@ class TrainerFCNVgg16(Trainer):
             self.logger.write_scalar(epoch,"TRAIN",train_loss, self.context.get_lr(), metric=train_avg_metrics)
             
             # Evaluation step
-            eval_loop = tqdm(val_loader,desc=f"Eval epoch {epoch}: ")
-            self.evaluate_epoch(eval_loop)
-            eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
+            eval_loss = 0
+            eval_avg_metrics = {}
+            if epoch % self.eval_epoc_step == 0: 
+                eval_loop = tqdm(val_loader,desc=f"Eval epoch {epoch}: ")
+                self.evaluate_epoch(eval_loop)
+                eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
 
-            self.logger.write_scalar(epoch,"EVAL",eval_loss, metric=eval_avg_metrics)
+                self.logger.write_scalar(epoch,"EVAL",eval_loss, metric=eval_avg_metrics)
 
             self.context(callbacks.EPOCH_END,**eval_avg_metrics)
 

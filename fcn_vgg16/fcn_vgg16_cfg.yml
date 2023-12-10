@@ -2,13 +2,14 @@
 task: "segmentation"
 epochs: 200
 checkpoint_step: 20
+validate_after: 100
 
 training:
 
   n_classes: 21
-  batch_acc: 1
+  batch_acc: 10
   autocast: True
-  batch_size: 2
+  batch_size: 1
   num_worker: 2
   pin_memory: False
 
@@ -17,8 +18,9 @@ training:
     ce: null
 
   optim:
-    SGD: 
-      momentum: 0.9
+    SGD:
+      fcn: True
+      momentum: 0.99
       weight_decay: 0.0005
       lr: 0.0001
 
