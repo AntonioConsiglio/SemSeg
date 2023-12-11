@@ -89,4 +89,10 @@ class TrainLogger():
         result_image = np.hstack((pred,img,gt))
 
         cv2.imwrite(filename,result_image)
+    
+    def write_activ_mean_hooks(self,step,key,value):
+        self.tb_writer.add_scalar(f"HOOKS_{key}/Mean",value,global_step=step)
+    
+    def write_activ_std_hooks(self,step,key,value):
+        self.tb_writer.add_scalar(f"HOOKS_{key}/Std",value,global_step=step)
 

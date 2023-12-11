@@ -1,10 +1,27 @@
 import os
+from functools import partial
+from matplotlib import pyplot as plt
 from torchmetrics import JaccardIndex,Dice, MetricCollection
 from common.losses import get_loss
 import torch
 from torch.optim import SGD
 from torch.cuda.amp.grad_scaler import GradScaler
+from common.backbones.layers import ConvBlock
+from common.backbones.vgg import VGGExtractor
 
+AVOID_HOOKS = (
+    torch.nn.Sequential,
+    ConvBlock,
+    torch.nn.Dropout2d,
+    torch.nn.ConvTranspose2d,
+    VGGExtractor,
+    torch.nn.Identity,
+    torch.nn.ModuleList,
+    torch.nn.InstanceNorm2d,
+    # torch.nn.SiLU,
+    # torch.nn.ReLU,
+    torch.nn.MaxPool2d,
+)
 
 class callbacks:
     TRAIN_BATCH_END = "train_batch_end"
@@ -12,28 +29,33 @@ class callbacks:
     TRAIN_EPOCH_END = "train_epoch_end"
     EVAL_EPOCH_END = "eval_epoch_end"
     EPOCH_END = "epoch_end"
-
 class ContextManager():
     '''
         This class create the context of the training process
     '''
-    def __init__(self,model,log_dir,cfg:dict,device:str = "cpu"):
-        
+    def __init__(self,model,logger,cfg:dict,device:str = "cpu"):
+
+        self.device = device
+        self.model = model
+        self.logger = logger
+        self.checkpoints_dir = os.path.join(logger.log_dir,"checkpoints")
+        os.makedirs(self.checkpoints_dir,exist_ok=True)
+
+        self.task = cfg.get("task","segmentation")
+        self.checkpoint_step = cfg.get("checkpoint_step",10)
+        self.autocast = cfg.get("autocast",True)
+        self.scaler = GradScaler(enabled=self.autocast)
+
         training_cfg = cfg.get("training")
         n_classes = training_cfg.get("n_classes",None)
         loss_function = training_cfg.get("loss_function",None)
         self.aux_loss_weight = training_cfg.get("aux_loss_weight",None)
-        self.task = cfg.get("task","segmentation")
         self.batch_acc = training_cfg.get("batch_acc",1)
+        self.register_forward_hooks = training_cfg.get("forward_hooks",True)
+
         self.optim:SGD = self._get_optim(model,training_cfg.get("optim",{"SGD":{"momentum":0.9,"weight_decay":1e-4}}))
+        self.loss_fn = get_loss(loss_function).to(self.device)
         self.lr_scheduler = self._get_lr_scheduler(training_cfg.get("lr_scheduler",None))
-        self.autocast = training_cfg.get("autocast",True)
-        self.checkpoint_step = cfg.get("checkpoint_step",10)
-        self.scaler = GradScaler(enabled=self.autocast)
-        self.device = device
-        self.model = model
-        self.checkpoints_dir = os.path.join(log_dir,"checkpoints")
-        os.makedirs(self.checkpoints_dir,exist_ok=True)
 
         if self.task == "segmentation":
             # self.train_metrics = MetricCollection([
@@ -46,12 +68,43 @@ class ContextManager():
             #                 JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
             #                 Dice(num_classes=n_classes,average="samples")])
         
-        self.loss_fn = get_loss(loss_function).to(self.device)
         self.train_loss_collection = []
         self.eval_loss_collection = []
         self.epoch = 1
         self.train_batch = 1
         self.best_metric = 0
+        self.hooks_step = 100
+        if self.register_forward_hooks:
+            self.actual_means = {k:0 for k,_ in self._module_filters(self.model.named_modules())}
+            self.actual_stds = [0 for _ in range(len(self.actual_means))]
+            for i,(k,m) in enumerate(self._module_filters(self.model.named_modules())) : m.register_forward_hook(partial(self._append_stats,k,i))
+
+    @staticmethod
+    def _module_filters(iterator):
+        
+        valid_modules = {}
+        for k,m in iterator:
+            if isinstance(m,AVOID_HOOKS):
+                continue
+            else:
+                valid_modules[k] = m
+            
+        return valid_modules.items()
+    
+    def _append_stats(self,k,i,m,inp,outp):
+
+        if self.train_batch % self.hooks_step == 0 or self.train_batch == 1:
+            if not m.training:
+                return
+            if k == "":
+                outp = inp[0].cpu()
+                self.actual_means[k] = outp.mean().item()
+                self.actual_stds[i] = outp.std().item()
+            else:
+                outp = outp.cpu()
+                self.actual_means[k] = outp.mean().item()
+                self.actual_stds[i] = outp.std().item()
+            
 
     def __call__(self,callback,**kargs):
         
@@ -75,7 +128,8 @@ class ContextManager():
 
         pred, target = kargs["preds"],kargs["target"]
         loss = self._calculate_loss(pred,target)
-        self.train_loss_collection.append(loss.item())
+        with torch.no_grad():
+            self.train_loss_collection.append(torch.mean(loss).item())
 
         self.scaler.scale(loss).backward()
 
@@ -88,13 +142,27 @@ class ContextManager():
             self.optim.zero_grad()
         
         self._update_metrics(self.train_metrics,pred,target)
-        
-        self.train_batch +=1
 
         batch_metrics = self._get_metrics_dict(self.train_metrics)
         epoch_avg_metrics = self._get_average(batch_metrics)
 
-        return loss.item(),batch_metrics,epoch_avg_metrics
+        if self.register_forward_hooks and (
+            self.train_batch % self.hooks_step == 0 or
+            self.train_batch == 1):
+
+            self._create_hooks_plot(self.train_batch)
+        
+        self.train_batch +=1
+
+        return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
+
+
+    def _create_hooks_plot(self,batch):
+        
+        for (k,o),s in zip(self.actual_means.items(),self.actual_stds):
+            step = self.epoch*batch
+            self.logger.write_activ_mean_hooks(step,k,o)
+            self.logger.write_activ_std_hooks(step,k,s)
 
 
     def _train_epoch_call(self,):
@@ -106,6 +174,8 @@ class ContextManager():
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
 
+        self.train_loss_collection = []
+
         return epoch_loss,epoch_metrics,epoch_avg_metrics
  
 
@@ -113,14 +183,15 @@ class ContextManager():
 
         pred, target = kargs["preds"],kargs["target"]
         loss = self._calculate_loss(pred,target)
-        self.eval_loss_collection.append(loss.item())
+        with torch.no_grad():
+            self.eval_loss_collection.append(torch.mean(loss).item())
 
         self._update_metrics(self.eval_metrics,pred,target)
 
         batch_metrics = self._get_metrics_dict(self.eval_metrics)
         epoch_avg_metrics = self._get_average(batch_metrics)
 
-        return loss.item(),batch_metrics,epoch_avg_metrics
+        return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
 
 
     def _eval_epoch_call(self):
@@ -129,6 +200,8 @@ class ContextManager():
         epoch_metrics = self._get_metrics_dict(self.eval_metrics)
         epoch_avg_metrics = self._get_average(epoch_metrics)
 
+        self.eval_loss_collection = []
+
         return epoch_loss,epoch_metrics,epoch_avg_metrics
         
 
@@ -136,7 +209,6 @@ class ContextManager():
 
         miou,dice = kargs.get("iou",0),kargs.get("dice",0)
         
-
         save_best = False
         if self.best_metric < miou:
             self.best_metric = miou
@@ -160,7 +232,6 @@ class ContextManager():
 
         self.epoch += 1
 
-        torch.cuda.empty_cache()
 
     def _calculate_loss(self,pred,target):
 
@@ -175,6 +246,7 @@ class ContextManager():
             return loss
   
         loss = self.loss_fn(pred,target)
+
         return loss
 
 
@@ -187,6 +259,7 @@ class ContextManager():
             activ_pred = torch.argmax(pred,dim=1)
 
         metrics.update(activ_pred.detach().cpu(),target.detach().cpu())
+
 
     def _get_average(self,obj,loss=False):
 
@@ -214,12 +287,21 @@ class ContextManager():
         return result
     
     def _get_fcn_params(self,model,bias):
+
         modules_skipped = (
+        torch.nn.Sequential,
+        ConvBlock,
+        torch.nn.Dropout2d,
+        torch.nn.ConvTranspose2d,
+        VGGExtractor,
+        torch.nn.Identity,
+        torch.nn.ModuleList,
+        torch.nn.InstanceNorm2d,
+        torch.nn.SiLU,
         torch.nn.ReLU,
         torch.nn.MaxPool2d,
-        torch.nn.Dropout2d,
-        torch.nn.Sequential,
         )
+
         for m in model.modules():
             if isinstance(m, torch.nn.Conv2d):
                 if bias:
