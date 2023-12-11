@@ -15,15 +15,15 @@ class TrainerFCNVgg16(Trainer):
     def __init__(self,
                  model:Module,
                  logger:TrainLogger,
-                 train_configuration:dict):
+                 cfg:dict):
         
         self.model = model
         self.logger = logger
-        self.cfg = train_configuration
+        self.cfg = cfg
         self.eval_epoc_step = self.cfg.get("validate_after",1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.autocast = train_configuration.get("autocast",True)
-        self.context = ContextManager(self.model,self.logger.log_dir,self.cfg,self.device)
+        self.autocast = cfg.get("autocast",False)
+        self.context = ContextManager(self.model,self.logger,self.cfg,self.device)
 
 
     def train(self,
@@ -73,7 +73,7 @@ class TrainerFCNVgg16(Trainer):
                 train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
                                                               preds = preds, target = target)
 
-                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics.get("dice",0))
+                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Dice = train_avg_metrics.get("dice",0))
 
 
     def evaluate_epoch(self,dataloader:tqdm):
@@ -91,4 +91,4 @@ class TrainerFCNVgg16(Trainer):
                     train_loss,_,train_avg_metrics = self.context(callbacks.EVAL_BATCH_END,
                                                                 preds = preds, target = target)
 
-                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics["iou"], Dice = train_avg_metrics.get("dice",0))
+                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics("iou",0), Dice = train_avg_metrics.get("dice",0))

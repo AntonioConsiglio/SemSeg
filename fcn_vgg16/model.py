@@ -16,9 +16,9 @@ class FCN_VGGnet(nn.Module):
         self.backbone = VGGExtractor(in_channels=in_channels)
         self.conv_head = nn.Sequential(
             L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.5),
             L.ConvBlock(4096,4096,kernel_size=1,padding=0,norm=norm,activation=activation),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(4096,out_channels,1,padding=0)
         )
 
@@ -54,17 +54,13 @@ class FCN_VGGnet(nn.Module):
         for modulue in modules:
             for m in modulue.modules():
                 if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                    nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
                 elif isinstance(m,nn.ConvTranspose2d):
-                    nn.init.constant_(m.weight, 0)
-                    if m.bias is not None:
-                        nn.init.constant_(m.bias, 0)
                     bilinear_kernel = self.bilinear_kernel(
                         m.in_channels, m.out_channels, m.kernel_size[0])
                     m.weight.data.copy_(bilinear_kernel)
-
                 elif isinstance(m, nn.BatchNorm2d):
                     nn.init.constant_(m.weight, 1)
                     nn.init.constant_(m.bias, 0)

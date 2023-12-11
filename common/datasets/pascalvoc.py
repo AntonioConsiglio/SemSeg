@@ -56,8 +56,8 @@ class PascalDataloader(DataLoader):
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
                                     train=train,
                                     transform=PASCALVOC_TRANSFORM,
-                                    mean = (0.0,0.0,0.0),# (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
-                                    std = (1.0,1.0,1.0))# (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+                                    mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
+                                    std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          num_workers=num_workers,
@@ -135,7 +135,7 @@ class PascalVocDataset(BaseDataset):
 
         if self.mean is None or self.std is None:
             self.mean,self.std = self._get_mean_std(self.root)
-        self.normilizer = A.Normalize(mean=mean,std=std,max_pixel_value=1)
+        self.normilizer = A.Normalize(mean = self.mean,std = self.std,max_pixel_value=1)
 
         
         
@@ -144,6 +144,8 @@ class PascalVocDataset(BaseDataset):
         sample = self.dataset[idx]
 
         image,mask = self._get_transform(sample)
+
+        #self._save_samples(image,mask,sample)
 
         return image,mask
 
@@ -183,6 +185,14 @@ class PascalVocDataset(BaseDataset):
             class_target[mask] = class_index
         
         return class_target
+    
+    def _save_samples(self,image,mask,sample):
+        
+        img2save = Image.fromarray((image.numpy().transpose(1,2,0)*255).astype(np.uint8))
+        mask2save = Image.fromarray((mask*10).astype(np.uint8))
+
+        img2save.save(sample["img"][-14:])
+        mask2save.save(sample["mask"][-14:])
     
 
 

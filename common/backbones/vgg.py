@@ -57,8 +57,6 @@ class VGGExtractor(nn.Module):
                 statedict[k] = v
 
             self.load_state_dict(statedict)
-
-            state = self.state_dict()
             return
         
         for m in self.modules():
