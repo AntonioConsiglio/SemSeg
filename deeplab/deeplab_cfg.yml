@@ -1,0 +1,28 @@
+
+task: "segmentation"
+epochs: 400
+checkpoint_step: 10
+validate_after: 10
+autocast: False
+
+training:
+
+  n_classes: 21
+  batch_acc: 1
+  batch_size: 1
+  num_worker: 2
+  pin_memory: True
+  forward_hooks: False
+
+  loss_function:
+    ce: null
+    params:
+      reduction: "sum"
+
+  optim:
+    SGD:
+      momentum: 0.99
+      weight_decay: 0.0005
+      lr: 0.0000000001
+
+
