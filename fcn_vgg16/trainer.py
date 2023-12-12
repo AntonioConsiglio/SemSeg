@@ -91,4 +91,4 @@ class TrainerFCNVgg16(Trainer):
                     train_loss,_,train_avg_metrics = self.context(callbacks.EVAL_BATCH_END,
                                                                 preds = preds, target = target)
 
-                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics("iou",0), Dice = train_avg_metrics.get("dice",0))
+                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Dice = train_avg_metrics.get("dice",0))

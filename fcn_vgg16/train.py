@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.join(Path(__file__).parent.parent))
 
 from fcn_vgg16.trainer import TrainerFCNVgg16
-from common import TrainLogger,PascalDataloader
+from common import TrainLogger,PascalDataloader,SBDDataloader
 
 from fcn_vgg16.model import FCN_VGGnet
 import yaml
@@ -23,10 +23,10 @@ if __name__ == "__main__":
 
     logger = TrainLogger("FCN_VGG")
     model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES)
-    train_dataloader = PascalDataloader(train=True,batch_size=BATCH_SIZE,
+    train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
     
-    eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
+    eval_dataloader = SBDDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)

@@ -159,8 +159,12 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-common/datasets/pascalvoc12
+common/datasets/pascalvoc12/*
+
+common/datasets/sbd/*
+!common/datasets/sbd/get_mask_from_mat_file.ipynb
 test.ipynb
 logs/*
 *.pth
+
 .vscode/

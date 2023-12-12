@@ -13,6 +13,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 
 
 PASCALVOC_ROOT = join("common","datasets","pascalvoc12")
+SBD_ROOT = join("common","datasets","sbd")
 
 PASCAL_VOC_COLORMAP = {
     0: (0, 0, 0),          # Background
@@ -49,8 +50,24 @@ PASCALVOC_TRANSFORM = A.Compose([
     # A.GridDistortion(),
 ])
 
+class SBDDataloader(DataLoader):
+    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
+                 pin_memory:bool = False) -> DataLoader:
+        
+        dataset = PascalVocDataset(root=SBD_ROOT,
+                                    train=train,
+                                    transform=PASCALVOC_TRANSFORM,
+                                    mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
+                                    std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+        
+        super().__init__(dataset=dataset,
+                         batch_size=batch_size,
+                         num_workers=num_workers,
+                         pin_memory=pin_memory,
+                         shuffle=train)
+        
 class PascalDataloader(DataLoader):
-    def __init__(self,train:bool=True,batch_size:int = 8, num_workers:int = 0,
+    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
                  pin_memory:bool = False) -> DataLoader:
         
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
@@ -109,6 +126,9 @@ class BaseDataset(Dataset):
 
 
 class PascalVocDataset(BaseDataset):
+
+    url =  "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar"
+
     def __init__(self,root:Optional[str] = None, train:bool = True, 
                  transform:A.Compose = None,
                  mean = None, std = None) -> Dataset:
@@ -195,4 +215,30 @@ class PascalVocDataset(BaseDataset):
         mask2save.save(sample["mask"][-14:])
     
 
+class SBD(PascalVocDataset):
+    
+    url = 'http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/semantic_contours/benchmark.tgz' 
+
+    def __init__(self,root:Optional[str] = None, train:bool = True, 
+                 transform:A.Compose = None,
+                 mean = None, std = None) -> Dataset:
+        
+        super().__init__(root,train,transform,mean,std)
+        pass
+    
+    def _get_transform(self,sample):
+
+        image = np.array(Image.open(sample["img"]).convert("RGB"))
+        mask = np.array(Image.open(sample["mask"]))
+
+        if self.augmenter is not None:
+
+            augmented = self.augmenter(image = image, mask = mask)
+            image,mask = augmented["image"],augmented["mask"]
+        
+        image = image / 255.0
+        image = self.normilizer(image = image)["image"]
+        image = torch.from_numpy(image.transpose(2,0,1))
+
+        return image,mask
 
