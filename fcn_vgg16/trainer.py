@@ -37,7 +37,7 @@ class TrainerFCNVgg16(Trainer):
         for epoch in range(1,epochs):
             
             # Train step
-            train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ")
+            train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
             self.train_epoch(train_loop)
             train_loss,train_metrics,train_avg_metrics = self.context(callbacks.TRAIN_EPOCH_END)
 
@@ -47,7 +47,7 @@ class TrainerFCNVgg16(Trainer):
             eval_loss = 0
             eval_avg_metrics = {}
             if epoch % self.eval_epoc_step == 0: 
-                eval_loop = tqdm(val_loader,desc=f"Eval epoch {epoch}: ")
+                eval_loop = tqdm(val_loader,desc=f"Eval epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
                 self.evaluate_epoch(eval_loop)
                 eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
 

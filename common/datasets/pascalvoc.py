@@ -54,12 +54,12 @@ class SBDDataloader(DataLoader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
                  pin_memory:bool = False) -> DataLoader:
         
-        dataset = PascalVocDataset(root=SBD_ROOT,
-                                    train=train,
-                                    transform=PASCALVOC_TRANSFORM,
-                                    mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
-                                    std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
-        
+        dataset = SBD(root=SBD_ROOT,
+                        train=train,
+                        transform=PASCALVOC_TRANSFORM,
+                        mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
+                        std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          num_workers=num_workers,
@@ -224,12 +224,11 @@ class SBD(PascalVocDataset):
                  mean = None, std = None) -> Dataset:
         
         super().__init__(root,train,transform,mean,std)
-        pass
     
     def _get_transform(self,sample):
 
         image = np.array(Image.open(sample["img"]).convert("RGB"))
-        mask = np.array(Image.open(sample["mask"]))
+        mask = np.array(Image.open(sample["mask"]).convert("L"))
 
         if self.augmenter is not None:
 

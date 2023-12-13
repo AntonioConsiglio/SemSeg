@@ -168,3 +168,4 @@ logs/*
 *.pth
 
 .vscode/
+*.png

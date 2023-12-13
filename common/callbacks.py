@@ -8,6 +8,8 @@ from torch.optim import SGD
 from torch.cuda.amp.grad_scaler import GradScaler
 from common.backbones.layers import ConvBlock
 from common.backbones.vgg import VGGExtractor
+import cv2
+import numpy as np
 
 AVOID_HOOKS = (
     torch.nn.Sequential,
@@ -257,8 +259,15 @@ class ContextManager():
 
         with torch.no_grad():
             activ_pred = torch.argmax(pred,dim=1)
+        
+        activ_pred = activ_pred.cpu()
+        target = target.cpu()
 
-        metrics.update(activ_pred.detach().cpu(),target.detach().cpu())
+        if self.train_batch % 100 == 0:
+            cv2.imwrite("prediction.png",activ_pred.squeeze().numpy().astype(np.uint8)*11)
+            cv2.imwrite("target.png",target.squeeze().numpy().astype(np.uint8)*11)
+
+        metrics.update(activ_pred,target)
 
 
     def _get_average(self,obj,loss=False):
