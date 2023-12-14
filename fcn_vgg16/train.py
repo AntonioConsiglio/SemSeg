@@ -20,6 +20,7 @@ if __name__ == "__main__":
     BATCH_SIZE = train_cfg.get("batch_size",4)
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
+    CHECKPOINT = train_cfg.get("checkpoint",None)
 
     logger = TrainLogger("FCN_VGG")
     model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES)
@@ -32,6 +33,7 @@ if __name__ == "__main__":
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 
     trainer.train(train_loader=train_dataloader,
-                  val_loader=eval_dataloader)
+                  val_loader=eval_dataloader,
+                  checkpoint=CHECKPOINT)
 
 

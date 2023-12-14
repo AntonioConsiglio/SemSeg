@@ -28,13 +28,17 @@ class TrainerFCNVgg16(Trainer):
 
     def train(self,
               train_loader:DataLoader,
-              val_loader:DataLoader) -> None:
+              val_loader:DataLoader,
+              checkpoint=None) -> None:
         
         epochs = self.cfg.pop("epochs",10)
-
+        start_epoch = 1
         self.model.to(self.device)
 
-        for epoch in range(1,epochs):
+        if checkpoint is not None:
+            start_epoch = self._load_checkpoint(checkpoint)
+
+        for epoch in range(start_epoch,epochs):
             
             # Train step
             train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
@@ -92,3 +96,6 @@ class TrainerFCNVgg16(Trainer):
                                                                 preds = preds, target = target)
 
                     dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Dice = train_avg_metrics.get("dice",0))
+
+    def _load_checkpoint(self,checkpoint):
+        return self.context._load_checkpoint(checkpoint)

@@ -234,6 +234,18 @@ class ContextManager():
 
         self.epoch += 1
 
+    def _load_checkpoint(self,checkpoint):
+        
+        checkpoint = torch.load(checkpoint,map_location=self.device)
+        self.model.load_state_dict(checkpoint.get("model"))
+        self.optim.load_state_dict(checkpoint.get("optim"))
+        self.scaler.load_state_dict(checkpoint.get("scaler"))
+        if checkpoint.get("lr_scheduler") is not None:
+            self.lr_scheduler.load_state_dict("lr_scheduler")
+        self.best_metric = checkpoint.get("best_metric")
+        self.epoch = checkpoint.get("epoch")+1
+
+        return self.epoch
 
     def _calculate_loss(self,pred,target):
 
