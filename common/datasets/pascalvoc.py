@@ -57,8 +57,8 @@ class SBDDataloader(DataLoader):
         dataset = SBD(root=SBD_ROOT,
                         train=train,
                         transform=PASCALVOC_TRANSFORM,
-                        mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
-                        std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+                        mean = (0.48235, 0.45882, 0.40784), #VGG16_Weights.IMAGENET1K_FEATURES:
+                        std = (1 / 255.0, 1 / 255.0, 1 / 255.0)) #VGG16_Weights.IMAGENET1K_FEATURES:
 
         super().__init__(dataset=dataset,
                          batch_size=batch_size,

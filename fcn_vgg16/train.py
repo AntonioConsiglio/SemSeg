@@ -23,7 +23,7 @@ if __name__ == "__main__":
     CHECKPOINT = train_cfg.get("checkpoint",None)
 
     logger = TrainLogger("FCN_VGG")
-    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES)
+    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x")
     train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
     

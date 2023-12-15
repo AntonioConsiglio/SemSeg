@@ -4,13 +4,14 @@ from os.path import join as path_join
 from pathlib import Path
 
 from .layers import ConvBlock
+from torchvision.models.vgg import VGG16_Weights
 
 class VGGExtractor(nn.Module):
 
     def __init__(self,in_channels,norm=False,activation="ReLU",pretrained=True):
         super().__init__()
 
-        layers_cfg = [64, "M", 128, 128, "M",256, 256, 256, "M", "S", 512, 512, 512, "M","S", 512, 512, 512, "S","M","S"]
+        layers_cfg = [64, "M", 128, 128, "M",256, 256, 256, "M", "S", 512, 512, 512, "M","S", 512, 512, 512,"M","S"]
         self.in_ch = in_channels
         self.out_ch = 512
         layers = nn.ModuleList()
@@ -51,7 +52,7 @@ class VGGExtractor(nn.Module):
     def _init_weights(self,pretrained=True):
         
         if pretrained:
-            pweights = torch.load(path_join(Path(__file__).parent,"weights","vgg16-397923af.pth"),map_location="cpu")
+            pweights = torch.load(path_join(Path(__file__).parent,"weights","vgg16-features.pth"),map_location="cpu")
             statedict = self.state_dict()
             for (k,_),(_,v) in zip(statedict.items(),pweights.items()):
                 statedict[k] = v
@@ -76,7 +77,7 @@ class VGGExtractor(nn.Module):
         parameters_keys = list(self.state_dict().keys())
         text = "\n".join(parameters_keys)
 
-        state_dict = torch.load(path_join(Path(__file__).parent,"weights","vgg16-397923af.pth"))
+        state_dict = torch.load(path_join(Path(__file__).parent,"weights","vgg16-features.pth"))
 
         old_parameters_keys = list(state_dict.keys())
         old_text = "\n".join(old_parameters_keys)

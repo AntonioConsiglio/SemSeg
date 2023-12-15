@@ -330,9 +330,10 @@ class ContextManager():
                 else:
                     yield m.weight
             elif isinstance(m, torch.nn.ConvTranspose2d):
-                # weight is frozen because it is just a bilinear upsampling
                 if bias:
                     assert m.bias is None
+                else:
+                    yield m.weight
             elif isinstance(m, modules_skipped):
                 continue
             else:

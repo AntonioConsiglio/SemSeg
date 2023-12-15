@@ -13,6 +13,7 @@ class FCN_VGGnet(nn.Module):
                  mode:str = "8x",
                  pretrained = False):
         super().__init__()
+        self.mode = mode
         self.backbone = VGGExtractor(in_channels=in_channels)
         self.conv_head = nn.Sequential(
             L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),
@@ -22,27 +23,71 @@ class FCN_VGGnet(nn.Module):
             nn.Conv2d(4096,out_channels,1,padding=0)
         )
 
-        self.upsample = nn.ConvTranspose2d(out_channels,out_channels,kernel_size=64,
-                                           stride=32,bias=False)
+        # Upsample layer based on the mode, Last upsamplere always freezed
+        if mode == "32x":
+            self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=64, stride=32, bias=False).requires_grad_(False)
+        elif mode == "16x":
+            self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
+            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False)
+            self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=32, stride=16, bias=False).requires_grad_(False)
+        elif mode in ["8x","8xs"]:
+            self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
+            self.pool_8x_proj = nn.Conv2d(256, 21, 1, padding=0, bias=True)
+            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False)
+            self.upsample_4x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=4, bias=False)
+            self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=16, stride=8, bias=False).requires_grad_(False)
+            if mode == "8xs":
+                self.pool4_w = 1e-02
+                self.pool3_w = 1e-02
+            else:
+                self.pool4_w = 1
+                self.pool3_w = 1
 
         
         self._init_weights([self.conv_head,self.upsample],pretrained)
     
     def forward(self,x):
         
-        _,_,h,w = x.size()
+        output_size = x.size()
         output = self.backbone(x)
 
         out = self.conv_head(output[-1])
+
+        if self.mode == "16x":
+            pool4 = self.pool_16x_proj(output[-2])
+            out_2x = self.upsample_2x(out)
+            pool4 = self._cutdim(pool4, out_2x.size())
+
+            out = pool4 + out_2x
+        
+        elif self.mode == "8x":
+            # Upsample features and add features from pool4_16x and pool3_8x
+            out_2x = self.upsample_2x(out)
+            pool4_2x = self.pool_16x_proj(output[-2])
+            pool4_2x = self._cutdim(pool4_2x,out_2x.size())
+
+            out16 = pool4_2x*self.pool4_w + out_2x
+
+            out16_2x = self.upsample_2x(out16)
+            pool3 = self.pool_8x_proj(output[-3])
+            pool3 = self._cutdim(pool3,out16_2x.size())
+            
+            out = pool3*self.pool3_w + out16_2x
+            
         out = self.upsample(out)
 
-        _,_,ho,wo = out.size()
-
-        ch,cw = (ho-h)//2 , (wo - w)//2
-
-        out = out[:, :, ch:h+ch, cw:w+cw].contiguous()
+        out = self._cutdim(out, output_size)
 
         return out
+
+    def _cutdim(self,tensor_in,out_dim):
+
+        _,_,hf,wf = out_dim
+        _,_,ho,wo = tensor_in.size()
+
+        ch,cw = (ho-hf)//2 , (wo - wf)//2
+
+        return tensor_in[:, :, ch:hf+ch, cw:wf+cw].contiguous()
 
     def _init_weights(self,modules,pretrained):
         
