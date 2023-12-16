@@ -59,8 +59,16 @@ class TrainerFCNVgg16(Trainer):
 
             self.context(callbacks.EPOCH_END,**eval_avg_metrics)
 
-            print("EPOCH {} = train_loss: {:.4f} - eval_loss: {:.4f}".format(epoch,train_loss,eval_loss))
+            final_text = "EPOCH {}: \n\
+                                Train_loss: {:.4f} - Eval_loss: {:.4f}, \n\
+                                Train mIou : {:.2f} - Eval mIoU : {:.2f}, \n\
+                                Train Acc: {:.2f} - Eval Acc: {:.2f} ".format(epoch,train_loss,eval_loss,
+                                                                     train_avg_metrics["iou"],
+                                                                      train_avg_metrics["iou"],
+                                                                       eval_avg_metrics["accuracy"],
+                                                                        eval_avg_metrics["accuracy"] )
 
+            self.logger.info(final_text)
             
     def train_epoch(self,dataloader:tqdm):
 
@@ -77,7 +85,7 @@ class TrainerFCNVgg16(Trainer):
                 train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
                                                               preds = preds, target = target)
 
-                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Dice = train_avg_metrics.get("dice",0))
+                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
 
     def evaluate_epoch(self,dataloader:tqdm):
@@ -95,7 +103,7 @@ class TrainerFCNVgg16(Trainer):
                     train_loss,_,train_avg_metrics = self.context(callbacks.EVAL_BATCH_END,
                                                                 preds = preds, target = target)
 
-                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Dice = train_avg_metrics.get("dice",0))
+                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
     def _load_checkpoint(self,checkpoint):
         return self.context._load_checkpoint(checkpoint)

@@ -112,6 +112,19 @@ class FCN_VGGnet(nn.Module):
                 elif isinstance(m, nn.Linear):
                     nn.init.normal_(m.weight, 0, 0.01)
                     nn.init.constant_(m.bias, 0)
+
+        # # Load the linear weight as Conv weight
+        path = r"C:\Users\anton\Desktop\PROGETTI\OPENSOURCE\SemSeg\common\backbones\weights\vgg16-classifier.pth"
+        pweights = {k:v for n, (k,v) in enumerate(torch.load(path,map_location="cpu").items()) if "classifier" in k and n < 30}
+        conv_head = modules[0].state_dict()
+        for (k,ov),(_,v) in zip(conv_head.items(),pweights.items()):
+            shape = ov.size()
+            conv_head[k] = v.view(shape)
+
+        conv_head_statedict = self.conv_head.state_dict()
+        conv_head_statedict.update(conv_head)
+        self.conv_head.load_state_dict(conv_head_statedict)
+
     
     def bilinear_kernel(self,in_channels,out_channels,kernel_size):
         """Generate a bilinear upsampling kernel."""

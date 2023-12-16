@@ -57,8 +57,8 @@ class SBDDataloader(DataLoader):
         dataset = SBD(root=SBD_ROOT,
                         train=train,
                         transform=PASCALVOC_TRANSFORM,
-                        mean = (0.48235, 0.45882, 0.40784), #VGG16_Weights.IMAGENET1K_FEATURES:
-                        std = (1 / 255.0, 1 / 255.0, 1 / 255.0)) #VGG16_Weights.IMAGENET1K_FEATURES:
+                        mean = (0.485, 0.456, 0.406), #VGG16_Weights.IMAGENET1K
+                        std = (0.229, 0.224, 0.225)) #VGG16_Weights.IMAGENET1K
 
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
@@ -73,8 +73,8 @@ class PascalDataloader(DataLoader):
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
                                     train=train,
                                     transform=PASCALVOC_TRANSFORM,
-                                    mean = (0.4563388526439667, 0.44267332553863525, 0.40784022212028503),
-                                    std = (0.26865023374557495, 0.2651878297328949, 0.2812159061431885))
+                                    mean = (0.485, 0.456, 0.406), #VGG16_Weights.IMAGENET1K
+                                    std = (0.229, 0.224, 0.225)) #VGG16_Weights.IMAGENET1K
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          num_workers=num_workers,
@@ -142,7 +142,7 @@ class PascalVocDataset(BaseDataset):
             with open(join(self.root,"train.txt"),"r") as f:
                 image_list = f.read().splitlines()
         else:
-            with open(join(self.root,"val.txt"),"r") as f:
+            with open(join(self.root,"seg11valid.txt"),"r") as f:
                 image_list = f.read().splitlines()
 
         self.dataset = [{"img":join(self.images_root,i+".jpg"),

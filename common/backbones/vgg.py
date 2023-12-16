@@ -52,7 +52,7 @@ class VGGExtractor(nn.Module):
     def _init_weights(self,pretrained=True):
         
         if pretrained:
-            pweights = torch.load(path_join(Path(__file__).parent,"weights","vgg16-features.pth"),map_location="cpu")
+            pweights = torch.load(path_join(Path(__file__).parent,"weights","vgg16-classifier.pth"),map_location="cpu")
             statedict = self.state_dict()
             for (k,_),(_,v) in zip(statedict.items(),pweights.items()):
                 statedict[k] = v

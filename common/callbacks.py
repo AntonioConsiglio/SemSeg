@@ -1,7 +1,7 @@
 import os
 from functools import partial
 from matplotlib import pyplot as plt
-from torchmetrics import JaccardIndex,Dice, MetricCollection
+from torchmetrics import JaccardIndex,Dice, MetricCollection,Accuracy
 from common.losses import get_loss
 import torch
 from torch.optim import SGD
@@ -60,20 +60,25 @@ class ContextManager():
         self.lr_scheduler = self._get_lr_scheduler(training_cfg.get("lr_scheduler",None))
 
         if self.task == "segmentation":
-            # self.train_metrics = MetricCollection([
-            #                 JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
-            #                 Dice(num_classes=n_classes,average="samples")])
-            self.train_metrics = JaccardIndex(task="multiclass",num_classes=n_classes,average="none")
+            self.train_metrics = MetricCollection([
+                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
+                            Accuracy(task = "multiclass",num_classes=n_classes)
+                            ])
 
-            self.eval_metrics = JaccardIndex(task="multiclass",num_classes=n_classes,average="none")
-            # MetricCollection([
-            #                 JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
-            #                 Dice(num_classes=n_classes,average="samples")])
+            self.eval_metrics = MetricCollection([
+                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
+                            Accuracy(task = "multiclass",num_classes=n_classes)
+                            ])
+
         
         self.train_loss_collection = []
         self.eval_loss_collection = []
+
+        self.last_metrics = 0
+
         self.epoch = 1
-        self.train_batch = 1
+        self.curr_batch = 1
+
         self.best_metric = 0
         self.hooks_step = 100
         if self.register_forward_hooks:
@@ -95,7 +100,7 @@ class ContextManager():
     
     def _append_stats(self,k,i,m,inp,outp):
 
-        if self.train_batch % self.hooks_step == 0 or self.train_batch == 1:
+        if self.curr_batch % self.hooks_step == 0 or self.curr_batch == 1:
             if not m.training:
                 return
             if k == "":
@@ -135,7 +140,7 @@ class ContextManager():
 
         self.scaler.scale(loss).backward()
 
-        if (self.epoch * self.train_batch) % self.batch_acc == 0:
+        if (self.epoch * self.curr_batch) % self.batch_acc == 0:
 
             self.scaler.step(self.optim)
 
@@ -149,12 +154,12 @@ class ContextManager():
         epoch_avg_metrics = self._get_average(batch_metrics)
 
         if self.register_forward_hooks and (
-            self.train_batch % self.hooks_step == 0 or
-            self.train_batch == 1):
+            self.curr_batch % self.hooks_step == 0 or
+            self.curr_batch == 1):
 
-            self._create_hooks_plot(self.train_batch)
+            self._create_hooks_plot(self.curr_batch)
         
-        self.train_batch +=1
+        self.curr_batch +=1
 
         return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
 
@@ -170,13 +175,14 @@ class ContextManager():
     def _train_epoch_call(self,):
         
         epoch_loss = self._get_average(self.train_loss_collection,loss=True)
-        epoch_metrics = self._get_metrics_dict(self.train_metrics)
+        epoch_metrics = self._get_metrics_dict(self.train_metrics,True)
         epoch_avg_metrics = self._get_average(epoch_metrics)
 
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
 
         self.train_loss_collection = []
+        self.curr_batch = 1
 
         return epoch_loss,epoch_metrics,epoch_avg_metrics
  
@@ -193,23 +199,26 @@ class ContextManager():
         batch_metrics = self._get_metrics_dict(self.eval_metrics)
         epoch_avg_metrics = self._get_average(batch_metrics)
 
+        self.curr_batch += 1
+
         return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
 
 
     def _eval_epoch_call(self):
         
         epoch_loss = self._get_average(self.eval_loss_collection,loss=True)
-        epoch_metrics = self._get_metrics_dict(self.eval_metrics)
+        epoch_metrics = self._get_metrics_dict(self.eval_metrics,True)
         epoch_avg_metrics = self._get_average(epoch_metrics)
 
         self.eval_loss_collection = []
-
+        self.curr_batch = 1
+    
         return epoch_loss,epoch_metrics,epoch_avg_metrics
         
 
     def _save_checkpoint(self,**kargs):
 
-        miou,dice = kargs.get("iou",0),kargs.get("dice",0)
+        miou,accuracy = kargs.get("iou",0),kargs.get("accuracy",0)
         
         save_best = False
         if self.best_metric < miou:
@@ -275,9 +284,9 @@ class ContextManager():
         activ_pred = activ_pred.cpu()
         target = target.cpu()
 
-        if self.train_batch % 100 == 0:
-            cv2.imwrite("prediction.png",activ_pred.squeeze().numpy().astype(np.uint8)*11)
-            cv2.imwrite("target.png",target.squeeze().numpy().astype(np.uint8)*11)
+        # if self.train_batch % 100 == 0:
+        #     cv2.imwrite("prediction.png",activ_pred.squeeze().numpy().astype(np.uint8)*11)
+        #     cv2.imwrite("target.png",target.squeeze().numpy().astype(np.uint8)*11)
 
         metrics.update(activ_pred,target)
 
@@ -288,7 +297,7 @@ class ContextManager():
             return sum(obj)/len(obj)
         
         averages = {}
-        keys = ["iou","dice"]
+        keys = ["iou","accuracy"]
         
         if isinstance(obj,dict):
             for k, (_, vals)in zip(keys,obj.items()):
@@ -303,8 +312,14 @@ class ContextManager():
         return averages
 
 
-    def _get_metrics_dict(self,metrics):
-        result = metrics.compute()          
+    def _get_metrics_dict(self,metrics,end_epoch=False):
+        
+        # if self.curr_batch % 300 == 0 or self.curr_batch == 1 or end_epoch:
+        #     result = metrics.compute()
+        #     self.last_train_metrics = result  
+        # else:
+        #     result = self.last_train_metrics        
+        result = metrics.compute()
         return result
     
     def _get_fcn_params(self,model,bias):
