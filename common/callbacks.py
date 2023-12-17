@@ -241,6 +241,9 @@ class ContextManager():
             torch.save(checkpoint,os.path.join(self.checkpoints_dir,"best.pt"))
 
         #torch.save(checkpoint,os.path.join(self.checkpoints_dir,"last.pt"))
+        # reset metrics at the end of each epoch
+        self.train_metrics.reset()
+        self.eval_metrics.reset()
 
         self.epoch += 1
 
