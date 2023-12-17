@@ -67,8 +67,8 @@ class ContextManager():
                             ])
 
             self.eval_metrics = MetricCollection([
-                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
-                            Accuracy(task = "multiclass",num_classes=n_classes)
+                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none",ignore_index=21),
+                            Accuracy(task = "multiclass",num_classes=n_classes,ignore_index=21)
                             ])
 
         
@@ -197,12 +197,12 @@ class ContextManager():
 
         self._update_metrics(self.eval_metrics,pred,target)
 
-        batch_metrics = self._get_metrics_dict(self.eval_metrics)
-        epoch_avg_metrics = self._get_average(batch_metrics)
+        #batch_metrics = self._get_metrics_dict(self.eval_metrics)
+        #epoch_avg_metrics = self._get_average(batch_metrics)
 
         self.curr_batch += 1
 
-        return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
+        return #torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
 
 
     def _eval_epoch_call(self):

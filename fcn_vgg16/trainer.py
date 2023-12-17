@@ -96,6 +96,7 @@ class TrainerFCNVgg16(Trainer):
 
                 if self.max_iter is not None:
                     if (batch+1) + self.batch_iter*epoch > self.max_iter:
+                        print("Max iter reached")
                         break
 
                 images,target = images.to(self.device),target.to(self.device)
@@ -120,10 +121,9 @@ class TrainerFCNVgg16(Trainer):
 
                     preds = self.model(images)
 
-                    train_loss,_,train_avg_metrics = self.context(callbacks.EVAL_BATCH_END,
-                                                                preds = preds, target = target)
+                    self.context(callbacks.EVAL_BATCH_END,preds = preds, target = target)
 
-                    dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
+                    # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
     def _load_checkpoint(self,checkpoint):
         return self.context._load_checkpoint(checkpoint)

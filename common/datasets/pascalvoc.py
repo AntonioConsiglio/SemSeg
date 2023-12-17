@@ -212,8 +212,6 @@ class PascalVocDataset(BaseDataset):
             mask = np.all(rgb_target == np.array(rgb_value), axis=-1)
             
             # Assign the class index to the corresponding pixels in the class target
-            if class_index == 21:
-                class_index = 0
             class_target[mask] = class_index
         
         return class_target

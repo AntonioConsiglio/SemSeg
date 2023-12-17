@@ -5,7 +5,7 @@ import torch
 
 class CELoss(Module):
     def __init__(self,weights=None,
-                 ignore_index:int = -1,
+                 ignore_index:int = 21,
                  reduction:str = "mean"):
         super().__init__()
         if weights is not None:
