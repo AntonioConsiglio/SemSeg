@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from os.path import join as path_join
+from pathlib import Path
 
 from common import VGGExtractor
 from common import layers as L
@@ -11,9 +13,11 @@ class FCN_VGGnet(nn.Module):
                  norm:bool = False,
                  activation:str = "ReLU",
                  mode:str = "8x",
+                 caffe_pretrained:bool = False,
                  pretrained = False):
         super().__init__()
         self.mode = mode
+        self.caffe_pretrained = caffe_pretrained
         self.backbone = VGGExtractor(in_channels=in_channels)
         self.conv_head = nn.Sequential(
             L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),
@@ -44,7 +48,7 @@ class FCN_VGGnet(nn.Module):
                 self.pool3_w = 1
 
         
-        self._init_weights([self.conv_head,self.upsample],pretrained)
+        self._init_weights([self],pretrained)
     
     def forward(self,x):
         
@@ -99,7 +103,8 @@ class FCN_VGGnet(nn.Module):
         for modulue in modules:
             for m in modulue.modules():
                 if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
+                    nn.init.constant_(m.weight, 0)
+                    #nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
                 elif isinstance(m,nn.ConvTranspose2d):
@@ -114,16 +119,19 @@ class FCN_VGGnet(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
         # # Load the linear weight as Conv weight
-        path = r"C:\Users\anton\Desktop\PROGETTI\OPENSOURCE\SemSeg\common\backbones\weights\vgg16-classifier.pth"
-        pweights = {k:v for n, (k,v) in enumerate(torch.load(path,map_location="cpu").items()) if "classifier" in k and n < 30}
-        conv_head = modules[0].state_dict()
-        for (k,ov),(_,v) in zip(conv_head.items(),pweights.items()):
+        project_path = Path(__file__).parent.parent
+        if self.caffe_pretrained:
+            path = path_join(project_path,"common","backbones","weights","vgg16-caffe.pth")
+        else:
+            path = path_join(project_path,"common","backbones","weights","vgg16-classifier.pth")
+            
+        pweights = {k:v for n, (k,v) in enumerate(torch.load(path,map_location="cpu").items()) if n < 30}
+        statedict = self.state_dict()
+        for (k,ov),(_,v) in zip(statedict.items(),pweights.items()):
             shape = ov.size()
-            conv_head[k] = v.view(shape)
+            statedict[k] = v.view(shape)
 
-        conv_head_statedict = self.conv_head.state_dict()
-        conv_head_statedict.update(conv_head)
-        self.conv_head.load_state_dict(conv_head_statedict)
+        self.load_state_dict(statedict)
 
     
     def bilinear_kernel(self,in_channels,out_channels,kernel_size):

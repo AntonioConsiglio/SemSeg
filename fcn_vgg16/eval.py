@@ -21,24 +21,18 @@ if __name__ == "__main__":
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
     CHECKPOINT = train_cfg.get("checkpoint",None)
-    CAFFE_PRETRAINED = train_cfg.get("caffe_pretrained",False)
-    MAX_ITER = train_cfg.get("max_iter",False)
 
     logger = TrainLogger("FCN_VGG")
-    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x",caffe_pretrained=CAFFE_PRETRAINED)
-    train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,
-                                        num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
-                                        caffe_pretrained=CAFFE_PRETRAINED)
+    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x")
     
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
-                                        num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
-                                        caffe_pretrained=CAFFE_PRETRAINED)
+                                        num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 
-    trainer.train(train_loader=train_dataloader,
-                  val_loader=eval_dataloader,
-                  max_iter = MAX_ITER,
+    result = trainer.evaluate(eval_dataloader,
                   checkpoint=CHECKPOINT)
+    
+    print(result)
 
 

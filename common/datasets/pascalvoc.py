@@ -52,13 +52,14 @@ PASCALVOC_TRANSFORM = A.Compose([
 
 class SBDDataloader(DataLoader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
-                 pin_memory:bool = False) -> DataLoader:
+                 pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
         dataset = SBD(root=SBD_ROOT,
                         train=train,
                         transform=PASCALVOC_TRANSFORM,
-                        mean = (0.485, 0.456, 0.406), #VGG16_Weights.IMAGENET1K
-                        std = (0.229, 0.224, 0.225)) #VGG16_Weights.IMAGENET1K
+                        mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68 / 255, 116.799 / 255, 103.949 / 255 ), #VGG16_Weights.IMAGENET1K
+                        std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255,1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
+                        caffe_pretrained=caffe_pretrained) 
 
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
@@ -68,13 +69,15 @@ class SBDDataloader(DataLoader):
         
 class PascalDataloader(DataLoader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
-                 pin_memory:bool = False) -> DataLoader:
+                 pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
                                     train=train,
                                     transform=PASCALVOC_TRANSFORM,
-                                    mean = (0.485, 0.456, 0.406), #VGG16_Weights.IMAGENET1K
-                                    std = (0.229, 0.224, 0.225)) #VGG16_Weights.IMAGENET1K
+                                    mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68/255, 116.799/255, 103.949/255 ), #VGG16_Weights.IMAGENET1K
+                                    std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255, 1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
+                                    caffe_pretrained=caffe_pretrained)
+        
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          num_workers=num_workers,
@@ -131,13 +134,14 @@ class PascalVocDataset(BaseDataset):
 
     def __init__(self,root:Optional[str] = None, train:bool = True, 
                  transform:A.Compose = None,
-                 mean = None, std = None) -> Dataset:
+                 mean = None, std = None,caffe_pretrained=False) -> Dataset:
         assert root is not None, "The dataset root path is missing!"
         super().__init__()
         self.colormap_dict = PASCAL_VOC_COLORMAP
         self.root = root
         self.images_root = join(root,"images")
         self.masks_root = join(root,"masks")
+        self.caffe_pretrained = caffe_pretrained
         if train:
             with open(join(self.root,"train.txt"),"r") as f:
                 image_list = f.read().splitlines()
@@ -155,7 +159,8 @@ class PascalVocDataset(BaseDataset):
 
         if self.mean is None or self.std is None:
             self.mean,self.std = self._get_mean_std(self.root)
-        self.normilizer = A.Normalize(mean = self.mean,std = self.std,max_pixel_value=1)
+        self.normilizer = A.Normalize(mean = self.mean,std = self.std,
+                                      max_pixel_value= 1 if not self.caffe_pretrained else 255.0 )
 
         
         
@@ -183,6 +188,13 @@ class PascalVocDataset(BaseDataset):
 
             augmented = self.augmenter(image = image, mask = mask)
             image,mask = augmented["image"],augmented["mask"]
+        
+        if self.caffe_pretrained:
+            image = self.normilizer(image = image)["image"]
+            image = torch.from_numpy(image.transpose(2,0,1))
+            image = image[[2,1,0],:]
+            
+            return image,mask
         
         image = image / 255.0
         image = self.normilizer(image = image)["image"]
@@ -221,9 +233,9 @@ class SBD(PascalVocDataset):
 
     def __init__(self,root:Optional[str] = None, train:bool = True, 
                  transform:A.Compose = None,
-                 mean = None, std = None) -> Dataset:
+                 mean = None, std = None,caffe_pretrained=False) -> Dataset:
         
-        super().__init__(root,train,transform,mean,std)
+        super().__init__(root,train,transform,mean,std,caffe_pretrained)
     
     def _get_transform(self,sample):
 
@@ -235,7 +247,14 @@ class SBD(PascalVocDataset):
             augmented = self.augmenter(image = image, mask = mask)
             image,mask = augmented["image"],augmented["mask"]
         
-        image = image / 255.0
+        if self.caffe_pretrained:
+            image = self.normilizer(image = image)["image"]
+            image = torch.from_numpy(image.transpose(2,0,1))
+            image = image[[2,1,0],:]
+            
+            return image,mask
+
+        image = image / 255.0 
         image = self.normilizer(image = image)["image"]
         image = torch.from_numpy(image.transpose(2,0,1))
 

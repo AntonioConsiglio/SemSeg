@@ -29,6 +29,7 @@ class TrainerFCNVgg16(Trainer):
     def train(self,
               train_loader:DataLoader,
               val_loader:DataLoader,
+              max_iter:int = None,
               checkpoint=None) -> None:
         
         epochs = self.cfg.pop("epochs",10)
@@ -37,12 +38,15 @@ class TrainerFCNVgg16(Trainer):
 
         if checkpoint is not None:
             start_epoch = self._load_checkpoint(checkpoint)
+        
+        self.max_iter = max_iter
+        self.batch_iter = len(train_loader)       
 
         for epoch in range(start_epoch,epochs):
             
             # Train step
             train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
-            self.train_epoch(train_loop)
+            self.train_epoch(train_loop,epoch-1)
             train_loss,train_metrics,train_avg_metrics = self.context(callbacks.TRAIN_EPOCH_END)
 
             self.logger.write_scalar(epoch,"TRAIN",train_loss, self.context.get_lr(), metric=train_avg_metrics)
@@ -64,19 +68,35 @@ class TrainerFCNVgg16(Trainer):
                                 Train mIou : {:.2f} - Eval mIoU : {:.2f}, \n\
                                 Train Acc: {:.2f} - Eval Acc: {:.2f} ".format(epoch,train_loss,eval_loss,
                                                                      train_avg_metrics["iou"],
-                                                                      train_avg_metrics["iou"],
-                                                                       eval_avg_metrics["accuracy"],
+                                                                      eval_avg_metrics["iou"],
+                                                                       train_avg_metrics["accuracy"],
                                                                         eval_avg_metrics["accuracy"] )
 
             self.logger.info(final_text)
-            
-    def train_epoch(self,dataloader:tqdm):
+
+    def evaluate(self,val_loader:tqdm,checkpoint = None):
+
+        assert checkpoint is not None, "Give a model checkpoint to evaluate!"
+        _ = self._load_checkpoint(checkpoint)
+        self.model.to(self.device)
+
+        eval_loop = tqdm(val_loader,desc=f"Evaluation process: ",bar_format="{l_bar}{bar:40}{r_bar}")
+        self.evaluate_epoch(eval_loop)
+        eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
+
+        return eval_loss,eval_metrics,eval_avg_metrics
+
+    def train_epoch(self,dataloader:tqdm,epoch:int):
 
         self.model.train()
         self.context.optim.zero_grad()
         
         with torch.cuda.amp.autocast(enabled=self.autocast):
             for batch,(images,target) in enumerate(dataloader):
+
+                if self.max_iter is not None:
+                    if (batch+1) + self.batch_iter*epoch > self.max_iter:
+                        break
 
                 images,target = images.to(self.device),target.to(self.device)
 

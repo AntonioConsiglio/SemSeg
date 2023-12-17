@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import cv2
 import numpy as np
+import yaml
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 from torch.utils.tensorboard import SummaryWriter
 
@@ -89,6 +90,10 @@ class TrainLogger():
         result_image = np.hstack((pred,img,gt))
 
         cv2.imwrite(filename,result_image)
+
+    def save_exp_cfg(self,cfg):
+        with open(os.path.join(self.log_dir,"exp_cfg.yml"),"w") as stream:
+            yaml.safe_dump(cfg,stream)
     
     def write_activ_mean_hooks(self,step,key,value):
         self.tb_writer.add_scalar(f"HOOKS_{key}/Mean",value,global_step=step)

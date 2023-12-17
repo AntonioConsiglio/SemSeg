@@ -10,9 +10,12 @@ training:
   n_classes: 21
   batch_acc: 1
   batch_size: 1
-  num_worker: 2
+  num_worker: 4
   pin_memory: True
   forward_hooks: False
+  #checkpoint: "C:\\Users\\anton\\Downloads\\checkpoints11.pt"
+  caffe_pretrained: True
+  max_iter: 10000 #max total batch iteration
 
   loss_function:
     ce: null

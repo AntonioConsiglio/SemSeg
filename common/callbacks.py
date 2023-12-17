@@ -40,6 +40,7 @@ class ContextManager():
         self.device = device
         self.model = model
         self.logger = logger
+        self.logger.save_exp_cfg(cfg)
         self.checkpoints_dir = os.path.join(logger.log_dir,"checkpoints")
         os.makedirs(self.checkpoints_dir,exist_ok=True)
 
