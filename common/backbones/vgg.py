@@ -23,7 +23,7 @@ class VGGExtractor(nn.Module):
         in_channels = 64
         for i in layers_cfg:
             if i == "M":
-                maxpool = nn.MaxPool2d(2,2)
+                maxpool = nn.MaxPool2d(2,2,ceil_mode=True)
                 modules.append(maxpool)
             elif i == "S":
                 layers.append(nn.Sequential(*modules))

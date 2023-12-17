@@ -26,7 +26,8 @@ if __name__ == "__main__":
     model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x")
     
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
-                                        num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
+                                        num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
+                                        caffe_pretrained=False)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 

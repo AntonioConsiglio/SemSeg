@@ -91,7 +91,7 @@ class FCN_VGGnet(nn.Module):
 
         ch,cw = (ho-hf)//2 , (wo - wf)//2
 
-        return tensor_in[:, :, ch:hf+ch, cw:wf+cw].contiguous()
+        return tensor_in[:, :, 19:19+hf, 19:19+wf].contiguous()
 
     def _init_weights(self,modules,pretrained):
         

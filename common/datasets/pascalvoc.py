@@ -142,10 +142,13 @@ class PascalVocDataset(BaseDataset):
         self.images_root = join(root,"images")
         self.masks_root = join(root,"masks")
         self.caffe_pretrained = caffe_pretrained
+        self.augmenter = transform
+        
         if train:
             with open(join(self.root,"train.txt"),"r") as f:
                 image_list = f.read().splitlines()
         else:
+            self.augmenter = None
             with open(join(self.root,"seg11valid.txt"),"r") as f:
                 image_list = f.read().splitlines()
 
@@ -153,7 +156,7 @@ class PascalVocDataset(BaseDataset):
                          "mask":join(self.masks_root,i+".png")} 
                          for i in image_list]
 
-        self.augmenter = transform
+       
         self.mean = mean
         self.std = std
 
