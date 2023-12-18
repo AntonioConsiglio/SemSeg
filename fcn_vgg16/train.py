@@ -25,7 +25,7 @@ if __name__ == "__main__":
     MAX_ITER = train_cfg.get("max_iter",False)
 
     logger = TrainLogger("FCN_VGG")
-    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x",caffe_pretrained=CAFFE_PRETRAINED)
+    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="16x",caffe_pretrained=CAFFE_PRETRAINED)
     train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
                                         caffe_pretrained=CAFFE_PRETRAINED)

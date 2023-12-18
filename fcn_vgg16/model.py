@@ -32,13 +32,13 @@ class FCN_VGGnet(nn.Module):
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=64, stride=32, bias=False).requires_grad_(False)
         elif mode == "16x":
             self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
-            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False)
+            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False).requires_grad_(False)
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=32, stride=16, bias=False).requires_grad_(False)
         elif mode in ["8x","8xs"]:
             self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
             self.pool_8x_proj = nn.Conv2d(256, 21, 1, padding=0, bias=True)
-            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False)
-            self.upsample_4x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=4, bias=False)
+            self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False).requires_grad_(False)
+            self.upsample_4x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=4, bias=False).requires_grad_(False)
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=16, stride=8, bias=False).requires_grad_(False)
             if mode == "8xs":
                 self.pool4_w = 1e-02
@@ -60,7 +60,7 @@ class FCN_VGGnet(nn.Module):
         if self.mode == "16x":
             pool4 = self.pool_16x_proj(output[-2])
             out_2x = self.upsample_2x(out)
-            pool4 = self._cutdim(pool4, out_2x.size())
+            pool4 = self._cutdim(pool4, out_2x.size(),"pool4")
 
             out = pool4 + out_2x
         
@@ -68,30 +68,37 @@ class FCN_VGGnet(nn.Module):
             # Upsample features and add features from pool4_16x and pool3_8x
             out_2x = self.upsample_2x(out)
             pool4_2x = self.pool_16x_proj(output[-2])
-            pool4_2x = self._cutdim(pool4_2x,out_2x.size())
+            pool4_2x = self._cutdim(pool4_2x,out_2x.size(),"pool4")
 
             out16 = pool4_2x*self.pool4_w + out_2x
 
             out16_2x = self.upsample_2x(out16)
             pool3 = self.pool_8x_proj(output[-3])
-            pool3 = self._cutdim(pool3,out16_2x.size())
+            pool3 = self._cutdim(pool3,out16_2x.size(),"pool3")
             
             out = pool3*self.pool3_w + out16_2x
             
         out = self.upsample(out)
 
-        out = self._cutdim(out, output_size)
+        out = self._cutdim(out, output_size,"last")
 
         return out
 
-    def _cutdim(self,tensor_in,out_dim):
+    def _cutdim(self,tensor_in,out_dim,layer:str):
 
         _,_,hf,wf = out_dim
-        _,_,ho,wo = tensor_in.size()
 
-        ch,cw = (ho-hf)//2 , (wo - wf)//2
+        if layer == "last":
+            if self.mode == "32x": off = 19
+            elif self.mode == "16x": off = 27
+            elif self.mode == "8x": off = 31
+        #16s
+        elif layer == "pool4": off = 5
+        #8s
+        elif layer == "pool3": off = 9
+        
 
-        return tensor_in[:, :, 19:19+hf, 19:19+wf].contiguous()
+        return tensor_in[:, :, off:off+hf, off:off+wf].contiguous()
 
     def _init_weights(self,modules,pretrained):
         
@@ -119,19 +126,44 @@ class FCN_VGGnet(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
         # # Load the linear weight as Conv weight
-        project_path = Path(__file__).parent.parent
-        if self.caffe_pretrained:
-            path = path_join(project_path,"common","backbones","weights","vgg16-caffe.pth")
-        else:
-            path = path_join(project_path,"common","backbones","weights","vgg16-classifier.pth")
-            
-        pweights = {k:v for n, (k,v) in enumerate(torch.load(path,map_location="cpu").items()) if n < 30}
-        statedict = self.state_dict()
-        for (k,ov),(_,v) in zip(statedict.items(),pweights.items()):
-            shape = ov.size()
-            statedict[k] = v.view(shape)
+        if self.mode == "32x":
+            project_path = Path(__file__).parent.parent
+            if self.caffe_pretrained:
+                path = path_join(project_path,"common","backbones","weights","vgg16-caffe.pth")
+            else:
+                path = path_join(project_path,"common","backbones","weights","vgg16-classifier.pth")
+                
+            pweights = {k:v for n, (k,v) in enumerate(torch.load(path,map_location="cpu").items()) if n < 30}
+            statedict = self.state_dict()
+            for (k,ov),(_,v) in zip(statedict.items(),pweights.items()):
+                shape = ov.size()
+                statedict[k] = v.view(shape)
+            self.load_state_dict(statedict)
 
-        self.load_state_dict(statedict)
+        elif self.mode == "16x":
+            
+            project_path = Path(__file__).parent.parent
+            path = path_join(project_path,"fcn_vgg16","weights","fcn32s.pth")
+     
+            pweights:dict = torch.load(path,map_location="cpu")
+            pweights.pop("upsample.weight")
+            statedict = self.state_dict()
+            statedict.update(pweights)
+                
+            self.load_state_dict(statedict)
+        
+        elif self.mode == "8x":
+
+            project_path = Path(__file__).parent.parent
+            path = path_join(project_path,"fcn_vgg16","weights","fcn16s.pth")
+     
+            pweights:dict = torch.load(path,map_location="cpu")
+            pweights.pop("upsample.weight")
+            statedict = self.state_dict()
+            statedict.update(pweights)
+                
+            self.load_state_dict(statedict)
+
 
     
     def bilinear_kernel(self,in_channels,out_channels,kernel_size):

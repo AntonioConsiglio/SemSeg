@@ -27,7 +27,7 @@ if __name__ == "__main__":
     
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
-                                        caffe_pretrained=False)
+                                        caffe_pretrained=True)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 

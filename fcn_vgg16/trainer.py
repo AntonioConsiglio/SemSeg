@@ -109,7 +109,7 @@ class TrainerFCNVgg16(Trainer):
                 dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
 
-    def evaluate_epoch(self,dataloader:tqdm):
+    def evaluate_epoch(self,dataloader:tqdm,save_image=False):
         
         self.model.eval()
 

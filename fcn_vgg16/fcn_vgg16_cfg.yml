@@ -7,13 +7,13 @@ autocast: False
 
 training:
 
-  n_classes: 21 #21 + bord to avoid
+  n_classes: 21
   batch_acc: 1
   batch_size: 1
-  num_worker: 2
+  num_worker: 8
   pin_memory: True
   forward_hooks: False
-  #checkpoint: "C:\\Users\\anton\\Downloads\\checkpoints11.pt"
+  #checkpoint: 
   caffe_pretrained: True
   max_iter: 100000 #max total batch iteration
 
