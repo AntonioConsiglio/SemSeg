@@ -41,6 +41,6 @@ img credits: https://arxiv.org/pdf/2001.04074.pdf
 |**FCN32s**| Paper | - | 100000 | 63.6 | 90.5 | [-]|
 |**FCN32s**| mine | 12 | 100000 | 63.1 | 90.5 |[[weights](https://drive.google.com/file/d/14USyOwfhz0Hvfy6tRxmstBs83yIGz70Y/view?usp=sharing)]|
 |**FCN16s**| Paper | - | - | 65.0 | 91.0 |[-]|
-|**FCN16s**| mine | 9 | 76492 | 64.62 | 91.0 |[[weights](https://drive.google.com/file/d/1rIn-OFpyObVanKDQriZ7WxWoP_q3QBl_/view?usp=sharing)]|
+|**FCN16s**| mine | 9 | 76482 | 64.62 | 91.0 |[[weights](https://drive.google.com/file/d/1rIn-OFpyObVanKDQriZ7WxWoP_q3QBl_/view?usp=sharing)]|
 |**FCN8s**| Paper | - | - | 65.5 | 91.2 |[-]|
-|**FCN8s**| mine | - | - | - | - |[[weights]()]|
+|**FCN8s**| mine | 7 | 59486 | 64.85 | 91.1 |[[weights](https://drive.google.com/file/d/1QPUH-XNAsQG6AhD75cf_lVlFMfOFP5Jz/view?usp=sharing)]|

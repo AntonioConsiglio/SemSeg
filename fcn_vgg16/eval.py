@@ -25,7 +25,7 @@ if __name__ == "__main__":
     CAFFE_PRETRAINED = train_cfg.get("caffe_pretrained",False)
 
     logger = TrainLogger("FCN_VGG")
-    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="16x")
+    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="8x")
     
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
