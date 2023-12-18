@@ -145,6 +145,7 @@ class PascalVocDataset(BaseDataset):
         self.augmenter = transform
         
         if train:
+            self.augmenter = None
             with open(join(self.root,"train.txt"),"r") as f:
                 image_list = f.read().splitlines()
         else:

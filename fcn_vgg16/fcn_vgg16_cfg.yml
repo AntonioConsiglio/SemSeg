@@ -4,6 +4,8 @@ epochs: 400
 checkpoint_step: 1
 validate_after: 1
 autocast: False
+#eval_checkpoint: 
+#eval_weights: 
 
 training:
 
@@ -27,7 +29,7 @@ training:
       fcn: True
       momentum: 0.99
       weight_decay: 0.0005
-      lr: 0.0000000001
+      lr: 1.0e-14
       
 
 

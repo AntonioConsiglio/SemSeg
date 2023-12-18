@@ -20,19 +20,22 @@ if __name__ == "__main__":
     BATCH_SIZE = train_cfg.get("batch_size",4)
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
-    CHECKPOINT = train_cfg.get("checkpoint",None)
+    CHECKPOINT = cfg.get("eval_checkpoint",None)
+    EVAL_WEIGHTS = cfg.get("eval_weights",None)
+    CAFFE_PRETRAINED = train_cfg.get("caffe_pretrained",False)
 
     logger = TrainLogger("FCN_VGG")
-    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="32x")
+    model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="16x")
     
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
-                                        caffe_pretrained=True)
+                                        caffe_pretrained=CAFFE_PRETRAINED)
 
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 
     result = trainer.evaluate(eval_dataloader,
-                  checkpoint=CHECKPOINT)
+                                pretrained_weights = EVAL_WEIGHTS,
+                                checkpoint=CHECKPOINT)
     
     print(result)
 

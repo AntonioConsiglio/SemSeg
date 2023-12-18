@@ -65,8 +65,8 @@ class TrainerFCNVgg16(Trainer):
 
             final_text = "EPOCH {}: \n\
                                 Train_loss: {:.4f} - Eval_loss: {:.4f}, \n\
-                                Train mIou : {:.2f} - Eval mIoU : {:.2f}, \n\
-                                Train Acc: {:.2f} - Eval Acc: {:.2f} ".format(epoch,train_loss,eval_loss,
+                                Train mIou : {:.4f} - Eval mIoU : {:.4f}, \n\
+                                Train Acc: {:.4f} - Eval Acc: {:.4f} ".format(epoch,train_loss,eval_loss,
                                                                      train_avg_metrics["iou"],
                                                                       eval_avg_metrics["iou"],
                                                                        train_avg_metrics["accuracy"],
@@ -74,15 +74,30 @@ class TrainerFCNVgg16(Trainer):
 
             self.logger.info(final_text)
 
-    def evaluate(self,val_loader:tqdm,checkpoint = None):
-
-        assert checkpoint is not None, "Give a model checkpoint to evaluate!"
-        _ = self._load_checkpoint(checkpoint)
+    def evaluate(self,val_loader:tqdm,
+                 pretrained_weights = None,
+                 checkpoint = None):
+        if pretrained_weights is None:
+            assert checkpoint is not None, "Give a model checkpoint to evaluate!"
+            _ = self._load_checkpoint(checkpoint)
+        else:
+            pweights = torch.load(pretrained_weights,map_location="cpu")
+            self.model.load_state_dict(pweights)
+            
         self.model.to(self.device)
 
         eval_loop = tqdm(val_loader,desc=f"Evaluation process: ",bar_format="{l_bar}{bar:40}{r_bar}")
         self.evaluate_epoch(eval_loop)
         eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
+
+        final_text = "Evaluation Results: \n\
+                        Average_loss: {:.4f}, \n\
+                        mIou : {:.4f} , \n\
+                        Acc: {:.4f} ".format(eval_loss,
+                                             eval_avg_metrics["iou"],
+                                            eval_avg_metrics["accuracy"] )
+
+        self.logger.info(final_text)
 
         return eval_loss,eval_metrics,eval_avg_metrics
 

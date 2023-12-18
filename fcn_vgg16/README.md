@@ -15,30 +15,32 @@ img credits: https://arxiv.org/pdf/2001.04074.pdf
 
 ## Training
 
-- Dataset:
-    - SBD for training
-    - PascalVoc11 (without samples used in the training split of SBD) ignoring the border (255 or class 21)
-    - The input is in the BGR format and only centered using channels-mean [103.949 , 116.799, 123.68] and in scale [0 - 255] not [0 - 1]
+- **Dataset:**
+    - SBD dataset is used for training.
+    - PascalVoc11 (excluding samples used in the training split of SBD), ignoring the border (255 or class 21).
+    - The input is in the BGR format and is centered using channel means [103.949, 116.799, 123.68]. The scale is [0 - 255], not [0 - 1].
 
-- VGG16 pretrained weights:
-    - Used the caffe pretrained weight following the paper.
-    - Last classification layer weights is discarder.
-    - All the other layers weights has been transfered, even the linear layer weights but reshaped of course.
+- **VGG16 pretrained weights:**
+    - Caffe pretrained weights were used following the paper.
+    - The weights of the last classification layer are discarded.
+    - All other layer weights have been transferred, including the linear layer weights, but reshaped accordingly.
 
-- The training follow the Heavy training procedure as described in the original paper:
-    - Batch size: 1
-    - Image with original Size
-    - Loss is not averaged because of the fact there will be different size during training, so it is summed (for this reason the LR of 1e-10 for FCN32s and so on)
-    - Momentum:  0.99 (This value is based on the fact that there is a relation between batch size and momentum , so in the paper it was considered a batch size of 20 with a momentum of 0.9 for standard training. The equivalent momentum for a batch size of 1 is equal to 0.99 [0.9
-    (1/20) ≈ 0.99]. Read the paper for more details)
-      
+- **Training Procedure:**
+    - The training follows the Heavy training procedure outlined in the original paper:
+        - Batch size: 1
+        - Images with original size
+        - Loss is not averaged due to varying sizes during training; it is summed. Hence, the learning rate of 1e-10 for FCN32s, 1e-12 fpr FCN16s and 1e-14 for FCN8s.
+        - Momentum: 0.99 (This value is chosen based on the relation between batch size and momentum. In the paper, a batch size of 20 with a momentum of 0.9 is considered for standard training. The equivalent momentum for a batch size of 1 is approximately 0.99 [0.9 * (1/20) ≈ 0.99]. Refer to the paper for more details.)
+- **Augmentation:**
+    - No augmentation was used as its inclusion did not yeld better results. 
+         
 ## Results
 
 |**Model**|**Ref**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|
-|**FCN32s**| Paper | - | 100k | 63.6 | 90.5 | [[weights](https://drive.google.com/uc?id=11k2Q0bvRQgQbT6-jYWeh6nmAsWlSCY3f)]|
-|**FCN32s**| mine | 12 | 100k | 63.1 | 90.5 |[[weights](https://drive.google.com/file/d/14USyOwfhz0Hvfy6tRxmstBs83yIGz70Y/view?usp=sharing)]|
-|**FCN16s**| Paper | - | - | 65.0 | 91.0 |[[weights]()]|
-|**FCN16s**| mine | - | - | - | - |[[weights]()]|
-|**FCN8s**| Paper | - | - | 65.5 | 91.2 |[[weights]()]|
+|**FCN32s**| Paper | - | 100000 | 63.6 | 90.5 | [-]|
+|**FCN32s**| mine | 12 | 100000 | 63.1 | 90.5 |[[weights](https://drive.google.com/file/d/14USyOwfhz0Hvfy6tRxmstBs83yIGz70Y/view?usp=sharing)]|
+|**FCN16s**| Paper | - | - | 65.0 | 91.0 |[-]|
+|**FCN16s**| mine | 9 | 76492 | 64.62 | 91.0 |[[weights](https://drive.google.com/file/d/1rIn-OFpyObVanKDQriZ7WxWoP_q3QBl_/view?usp=sharing)]|
+|**FCN8s**| Paper | - | - | 65.5 | 91.2 |[-]|
 |**FCN8s**| mine | - | - | - | - |[[weights]()]|
