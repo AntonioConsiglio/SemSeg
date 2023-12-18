@@ -58,32 +58,36 @@ class FCN_VGGnet(nn.Module):
         
         output_size = x.size()
         output = self.backbone(x)
-
+        # Conv7 output
         out = self.conv_head(output[-1])
 
         if self.mode == "16x":
-            pool4 = self.pool4_proj(output[-2])
+            # Upsample features of conv7 output
             out_2x = self.upsample_2x(out)
+            # Project pool4 features from 512 -> 21 channels
+            pool4 = self.pool4_proj(output[-2])
+            # Crop pool4 and add to Upsampled conv7 features
             pool4 = self._cutdim(pool4, out_2x.size(),"pool4")
-
             out = pool4 + out_2x
         
         elif self.mode == "8x":
-            # Upsample features and add features from pool4_16x and pool3_8x
+            # Upsample features of conv7 output
             out_2x = self.upsample_2x(out)
+            # Project pool4 features from 512 -> 21 channels
             pool4_2x = self.pool4_proj(output[-2])
+            # Crop pool4 and add to Upsampled conv7 features
             pool4_2x = self._cutdim(pool4_2x,out_2x.size(),"pool4")
-
             out16 = pool4_2x*self.pool4_w + out_2x
-
-            out16_2x = self.upsample_2x(out16)
+            # Upsample result 2x
+            out16_2x = self.upsample_4x(out16)
+            # Project pool3 features 256 -> 21 channels, crop and add to out16 result
             pool3 = self.pool3_proj(output[-3])
-            pool3 = self._cutdim(pool3,out16_2x.size(),"pool3")
-            
+            pool3 = self._cutdim(pool3,out16_2x.size(),"pool3") 
             out = pool3*self.pool3_w + out16_2x
-            
-        out = self.upsample(out)
 
+        # Upsample features to original magniture    
+        out = self.upsample(out)
+        # Crop the upsampled result to match the input shape
         out = self._cutdim(out, output_size,"last")
 
         return out
