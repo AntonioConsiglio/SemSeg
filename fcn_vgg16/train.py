@@ -24,8 +24,11 @@ if __name__ == "__main__":
     CAFFE_PRETRAINED = train_cfg.get("caffe_pretrained",False)
     MAX_ITER = train_cfg.get("max_iter",False)
 
+    # Create training logger
     logger = TrainLogger("FCN_VGG")
+    # Create FCN model
     model = FCN_VGGnet(in_channels=3,out_channels=N_CLASSES,mode="8x",caffe_pretrained=CAFFE_PRETRAINED)
+    # Load train and validation dataloader
     train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
                                         caffe_pretrained=CAFFE_PRETRAINED)
@@ -33,9 +36,10 @@ if __name__ == "__main__":
     eval_dataloader = PascalDataloader(train=False,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
                                         caffe_pretrained=CAFFE_PRETRAINED)
-
+    # Create Trainer instance
     trainer = TrainerFCNVgg16(model=model,logger=logger,cfg=cfg)
 
+    # Run train process
     trainer.train(train_loader=train_dataloader,
                   val_loader=eval_dataloader,
                   max_iter = MAX_ITER,

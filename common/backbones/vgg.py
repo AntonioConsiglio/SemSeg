@@ -4,7 +4,6 @@ from os.path import join as path_join
 from pathlib import Path
 
 from .layers import ConvBlock
-from torchvision.models.vgg import VGG16_Weights
 
 class VGGExtractor(nn.Module):
 
@@ -16,7 +15,8 @@ class VGGExtractor(nn.Module):
         self.out_ch = 512
         layers = nn.ModuleList()
 
-        # The input considered here is 320x320 the padding is to make the output to be equal to 16x16
+        # The padding 100 is added to allow the full size image training for FCN_VGG16 architecture
+        # In that case is possible to set a minimum offset to align the prediction output to the target
         modules = [ConvBlock(in_channels=in_channels,out_channels=64,
                              kernel_size=3,padding=100,activation=activation,
                              norm=norm)]

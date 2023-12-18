@@ -45,7 +45,7 @@ class ContextManager():
         os.makedirs(self.checkpoints_dir,exist_ok=True)
 
         self.task = cfg.get("task","segmentation")
-        self.checkpoint_step = cfg.get("checkpoint_step",10)
+        self.checkpoint_step = cfg.get("checkpoint_step",10) # step for training checkpoint saving
         self.autocast = cfg.get("autocast",True)
         self.scaler = GradScaler(enabled=self.autocast)
 

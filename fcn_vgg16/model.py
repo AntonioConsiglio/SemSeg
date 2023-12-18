@@ -17,8 +17,11 @@ class FCN_VGGnet(nn.Module):
                  pretrained = False):
         super().__init__()
         self.mode = mode
+        # Flag to load pretrained from VGG16 caffe pretrained weights
         self.caffe_pretrained = caffe_pretrained
+        # VGG16 without linear layers and with pool3,pool4 and pool5 outputs
         self.backbone = VGGExtractor(in_channels=in_channels)
+        # Conv6 and conv7 that replace the linear layer in vgg classifier
         self.conv_head = nn.Sequential(
             L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),
             nn.Dropout2d(0.5),
@@ -27,20 +30,21 @@ class FCN_VGGnet(nn.Module):
             nn.Conv2d(4096,out_channels,1,padding=0)
         )
 
-        # Upsample layer based on the mode, Last upsamplere always freezed
+        # Upsample layer based on the mode, upsample layers are freezed and initialized with bilinear kernel
         if mode == "32x":
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=64, stride=32, bias=False).requires_grad_(False)
         elif mode == "16x":
-            self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
+            self.pool4_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True) #pool4 outpout projection
             self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False).requires_grad_(False)
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=32, stride=16, bias=False).requires_grad_(False)
         elif mode in ["8x","8xs"]:
-            self.pool_16x_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True)
-            self.pool_8x_proj = nn.Conv2d(256, 21, 1, padding=0, bias=True)
+            self.pool4_proj = nn.Conv2d(512, 21, 1, padding=0, bias=True) #pool4 outpout projection
+            self.pool3_proj = nn.Conv2d(256, 21, 1, padding=0, bias=True) #pool3 outpout projection
             self.upsample_2x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False).requires_grad_(False)
-            self.upsample_4x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=4, bias=False).requires_grad_(False)
+            self.upsample_4x = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=4, stride=2, bias=False).requires_grad_(False)
             self.upsample = nn.ConvTranspose2d(out_channels, out_channels, kernel_size=16, stride=8, bias=False).requires_grad_(False)
             if mode == "8xs":
+                # During the direct training of the FCN8s model following the paper implementation
                 self.pool4_w = 1e-02
                 self.pool3_w = 1e-02
             else:
@@ -58,7 +62,7 @@ class FCN_VGGnet(nn.Module):
         out = self.conv_head(output[-1])
 
         if self.mode == "16x":
-            pool4 = self.pool_16x_proj(output[-2])
+            pool4 = self.pool4_proj(output[-2])
             out_2x = self.upsample_2x(out)
             pool4 = self._cutdim(pool4, out_2x.size(),"pool4")
 
@@ -67,13 +71,13 @@ class FCN_VGGnet(nn.Module):
         elif self.mode == "8x":
             # Upsample features and add features from pool4_16x and pool3_8x
             out_2x = self.upsample_2x(out)
-            pool4_2x = self.pool_16x_proj(output[-2])
+            pool4_2x = self.pool4_proj(output[-2])
             pool4_2x = self._cutdim(pool4_2x,out_2x.size(),"pool4")
 
             out16 = pool4_2x*self.pool4_w + out_2x
 
             out16_2x = self.upsample_2x(out16)
-            pool3 = self.pool_8x_proj(output[-3])
+            pool3 = self.pool3_proj(output[-3])
             pool3 = self._cutdim(pool3,out16_2x.size(),"pool3")
             
             out = pool3*self.pool3_w + out16_2x
@@ -89,12 +93,13 @@ class FCN_VGGnet(nn.Module):
         _,_,hf,wf = out_dim
 
         if layer == "last":
+            # These values are based on the offset of the paper implementation
             if self.mode == "32x": off = 19
             elif self.mode == "16x": off = 27
             elif self.mode == "8x": off = 31
-        #16s
+        #16s - value are based on the offset of the paper implementation
         elif layer == "pool4": off = 5
-        #8s
+        #8s - value are based on the offset of the paper implementation
         elif layer == "pool3": off = 9
         
 
@@ -107,6 +112,7 @@ class FCN_VGGnet(nn.Module):
             self.load_state_dict(pweights)
             return
         
+        # First initialization
         for modulue in modules:
             for m in modulue.modules():
                 if isinstance(m, nn.Conv2d):
@@ -125,7 +131,7 @@ class FCN_VGGnet(nn.Module):
                     nn.init.normal_(m.weight, 0, 0.01)
                     nn.init.constant_(m.bias, 0)
 
-        # # Load the linear weight as Conv weight
+        # # Load pretrained vgg16 weights - the linear weight reshaped as Conv weight
         if self.mode == "32x":
             project_path = Path(__file__).parent.parent
             if self.caffe_pretrained:

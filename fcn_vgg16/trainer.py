@@ -23,6 +23,7 @@ class TrainerFCNVgg16(Trainer):
         self.eval_epoc_step = self.cfg.get("validate_after",1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.autocast = cfg.get("autocast",False)
+        # Create the context instance that handle training callbacks
         self.context = ContextManager(self.model,self.logger,self.cfg,self.device)
 
 
@@ -34,8 +35,10 @@ class TrainerFCNVgg16(Trainer):
         
         epochs = self.cfg.pop("epochs",10)
         start_epoch = 1
+        # model to device - cuda if exist
         self.model.to(self.device)
 
+        # restart training process from checkpoint
         if checkpoint is not None:
             start_epoch = self._load_checkpoint(checkpoint)
         
