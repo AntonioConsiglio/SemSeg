@@ -30,7 +30,7 @@ To configure the environment and start working on this project, follow the steps
 ### Requirements
 
 - Python 3.9
-- PyTorch 2.0.1
+- PyTorch 2.1.1
 
 ### Install Dependencies
 
