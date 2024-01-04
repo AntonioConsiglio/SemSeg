@@ -38,4 +38,4 @@ img credits: https://arxiv.org/pdf/1505.04597.pdf
 |**Model**|**Ref**|**Pretrained**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|---|
 |**U-NET**| Paper | - | - | - | - | - | [-]|
-|**FCN32s**| mine | - | - | - | - | - |[[weights]()]|
+|**U-NET**| mine | - | - | - | - | - |[[weights]()]|
