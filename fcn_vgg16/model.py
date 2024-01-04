@@ -20,7 +20,7 @@ class FCN_VGGnet(nn.Module):
         # Flag to load pretrained from VGG16 caffe pretrained weights
         self.caffe_pretrained = caffe_pretrained
         # VGG16 without linear layers and with pool3,pool4 and pool5 outputs
-        self.backbone = VGGExtractor(in_channels=in_channels)
+        self.backbone = VGGExtractor(in_channels=in_channels,fcn=True)
         # Conv6 and conv7 that replace the linear layer in vgg classifier
         self.conv_head = nn.Sequential(
             L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),

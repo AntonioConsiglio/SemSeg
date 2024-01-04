@@ -17,7 +17,7 @@ img credits: https://arxiv.org/pdf/2001.04074.pdf
 
 - **Dataset:**
     - SBD dataset is used for training.
-    - PascalVoc11 (excluding samples used in the training split of SBD), ignoring the border (255 or class 21).
+    - PascalVoc11 (excluding samples used in the training split of SBD) is used for validation, ignoring the border (255 or class 21).
     - The input is in the BGR format and is centered using channel means [103.949, 116.799, 123.68]. The scale is [0 - 255], not [0 - 1].
 
 - **VGG16 pretrained weights:**
