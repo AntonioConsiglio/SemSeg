@@ -24,7 +24,8 @@ class TrainerFCNVgg16(Trainer):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.autocast = cfg.get("autocast",False)
         # Create the context instance that handle training callbacks
-        self.context = ContextManager(self.model,self.logger,self.cfg,self.device)
+        self.context = ContextManager(self.model,self.logger,self.cfg,
+                                      self.device,self._get_optim)
 
 
     def train(self,
@@ -145,3 +146,30 @@ class TrainerFCNVgg16(Trainer):
 
     def _load_checkpoint(self,checkpoint):
         return self.context._load_checkpoint(checkpoint)
+    
+    @staticmethod
+    def _get_optim(model,optim_cfg:dict):
+
+        def get_fcn_params(model,bias):
+
+            for m in model.modules():
+                if isinstance(m, torch.nn.Conv2d):
+                    if bias:
+                        yield m.bias
+                    else:
+                        yield m.weight
+                elif isinstance(m, torch.nn.ConvTranspose2d):
+                    if bias:
+                        assert m.bias is None
+                    else:
+                        yield m.weight
+                else:
+                    continue
+
+        for optim,params in optim_cfg.items():      
+            optim_class = getattr(torch.optim,optim)
+            lr = params.get("lr")
+            optim = optim_class([{"params": get_fcn_params(model,bias=False)},
+                                    {"params": get_fcn_params(model,bias=True),
+                                    "lr":lr * 2 ,"weight_decay":0}],**params)
+            return optim

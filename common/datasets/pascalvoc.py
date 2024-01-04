@@ -51,12 +51,12 @@ PASCALVOC_TRANSFORM = A.Compose([
 ])
 
 class SBDDataloader(DataLoader):
-    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
+    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
         dataset = SBD(root=SBD_ROOT,
                         train=train,
-                        transform=PASCALVOC_TRANSFORM,
+                        transform = transform,
                         mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68 / 255, 116.799 / 255, 103.949 / 255 ), #VGG16_Weights.IMAGENET1K
                         std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255,1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
                         caffe_pretrained=caffe_pretrained) 
@@ -68,12 +68,12 @@ class SBDDataloader(DataLoader):
                          shuffle=train)
         
 class PascalDataloader(DataLoader):
-    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
+    def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
         dataset = PascalVocDataset(root=PASCALVOC_ROOT,
                                     train=train,
-                                    transform=PASCALVOC_TRANSFORM,
+                                    transform=transform,
                                     mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68/255, 116.799/255, 103.949/255 ), #VGG16_Weights.IMAGENET1K
                                     std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255, 1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
                                     caffe_pretrained=caffe_pretrained)
@@ -145,11 +145,9 @@ class PascalVocDataset(BaseDataset):
         self.augmenter = transform
         
         if train:
-            self.augmenter = None
             with open(join(self.root,"train.txt"),"r") as f:
                 image_list = f.read().splitlines()
         else:
-            self.augmenter = None
             with open(join(self.root,"seg11valid.txt"),"r") as f:
                 image_list = f.read().splitlines()
 

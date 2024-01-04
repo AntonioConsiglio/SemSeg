@@ -7,7 +7,7 @@ from .layers import ConvBlock
 
 class VGGExtractor(nn.Module):
 
-    def __init__(self,in_channels,norm=False,activation="ReLU",pretrained=True):
+    def __init__(self,in_channels,norm=False,activation="ReLU",fcn = False,pretrained=True):
         super().__init__()
 
         layers_cfg = [64, "M", 128, 128, "M",256, 256, 256, "M", "S", 512, 512, 512, "M","S", 512, 512, 512,"M","S"]
@@ -17,8 +17,12 @@ class VGGExtractor(nn.Module):
 
         # The padding 100 is added to allow the full size image training for FCN_VGG16 architecture
         # In that case is possible to set a minimum offset to align the prediction output to the target
+        if fcn:
+            first_padding = 100
+        else:
+            first_padding = 1
         modules = [ConvBlock(in_channels=in_channels,out_channels=64,
-                             kernel_size=3,padding=100,activation=activation,
+                             kernel_size=3,padding=first_padding,activation=activation,
                              norm=norm)]
         in_channels = 64
         for i in layers_cfg:

@@ -1,4 +1,5 @@
 import os
+from typing import Optional,Any
 from functools import partial
 from matplotlib import pyplot as plt
 from torchmetrics import JaccardIndex,Dice, MetricCollection,Accuracy
@@ -35,7 +36,7 @@ class ContextManager():
     '''
         This class create the context of the training process
     '''
-    def __init__(self,model,logger,cfg:dict,device:str = "cpu"):
+    def __init__(self,model,logger,cfg:dict,device:str = "cpu",get_optim_fn:Optional[Any] = None):
 
         self.device = device
         self.model = model
@@ -56,7 +57,10 @@ class ContextManager():
         self.batch_acc = training_cfg.get("batch_acc",1)
         self.register_forward_hooks = training_cfg.get("forward_hooks",True)
 
-        self.optim:SGD = self._get_optim(model,training_cfg.get("optim",{"SGD":{"momentum":0.9,"weight_decay":1e-4}}))
+        if get_optim_fn is None:
+            self.optim:SGD = self._get_optim(model,training_cfg.get("optim",{"SGD":{"momentum":0.9,"weight_decay":1e-4}}))
+        else:
+            self.optim:SGD = get_optim_fn(model,training_cfg.get("optim",{"SGD":{"momentum":0.9,"weight_decay":1e-4}}))
         self.loss_fn = get_loss(loss_function).to(self.device)
         self.lr_scheduler = self._get_lr_scheduler(training_cfg.get("lr_scheduler",None))
 
@@ -326,54 +330,13 @@ class ContextManager():
         result = metrics.compute()
         return result
     
-    def _get_fcn_params(self,model,bias):
-
-        modules_skipped = (
-        torch.nn.Sequential,
-        ConvBlock,
-        torch.nn.Dropout2d,
-        torch.nn.ConvTranspose2d,
-        VGGExtractor,
-        torch.nn.Identity,
-        torch.nn.ModuleList,
-        torch.nn.InstanceNorm2d,
-        torch.nn.SiLU,
-        torch.nn.ReLU,
-        torch.nn.MaxPool2d,
-        )
-
-        for m in model.modules():
-            if isinstance(m, torch.nn.Conv2d):
-                if bias:
-                    yield m.bias
-                else:
-                    yield m.weight
-            elif isinstance(m, torch.nn.ConvTranspose2d):
-                if bias:
-                    assert m.bias is None
-                else:
-                    yield m.weight
-            elif isinstance(m, modules_skipped):
-                continue
-            else:
-                continue
-                raise ValueError('Unexpected module: %s' % str(m))
-            pass
-    
     def _get_optim(self,model,optim_cfg:dict):
 
         for optim,params in optim_cfg.items():      
             optim_class = getattr(torch.optim,optim)
-            if params.get("fcn",False):
-                params.pop("fcn")
-                lr = params.get("lr")
-                optim = optim_class([{"params": self._get_fcn_params(model,bias=False)},
-                                     {"params": self._get_fcn_params(model,bias=True),
-                                      "lr":lr * 2 ,"weight_decay":0}],**params)
-                return optim
-            
             optim = optim_class(model.parameters(),**params)
-        return optim
+            
+            return optim
 
     def _get_lr_scheduler(self,lr_config):
         if lr_config is not None:
