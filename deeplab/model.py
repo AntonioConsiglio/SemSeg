@@ -5,20 +5,33 @@ import torch
 from common import VGGExtractor
 from common import layers as L
 
+from torchvision.models.segmentation import deeplabv3_resnet50
 class DeepLab(nn.Module):
     def __init__(self,in_channels:int,
                  out_channels:int,
                  norm:bool = False,
                  activation:str = "ReLU",
+                 mode="largeFOV",
                  pretrained = False):
         super().__init__()
-        self.backbone = VGGExtractor(in_channels=in_channels)
+        self.backbone = VGGExtractor(in_channels=in_channels,fcn = False)
+        if mode == "largeFOV":
+            kernel_size = 3
+            inter_channels = 1024
+            dilatation = 12
+        else:
+            kernel_size = 7
+            inter_channels = 4096
+            dilatation = 4
+            
         self.conv_head = nn.Sequential(
-            L.ConvBlock(self.backbone.out_ch,4096,kernel_size=7,padding=0,norm=norm,activation=activation),
+            L.ConvBlock(self.backbone.out_ch,inter_channels,kernel_size=kernel_size,
+                        padding=0,dilatation=dilatation,norm=norm,activation=activation),
             nn.Dropout2d(0.5),
-            L.ConvBlock(4096,4096,kernel_size=1,padding=0,norm=norm,activation=activation),
+            L.ConvBlock(inter_channels,inter_channels,kernel_size=1,padding=0,
+                        norm=norm,activation=activation),
             nn.Dropout2d(0.5),
-            nn.Conv2d(4096,out_channels,1,padding=0)
+            nn.Conv2d(inter_channels,out_channels,1,padding=0)
         )
 
         self.upsample = nn.ConvTranspose2d(out_channels,out_channels,kernel_size=64,

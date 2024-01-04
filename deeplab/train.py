@@ -21,7 +21,7 @@ if __name__ == "__main__":
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
 
-    logger = TrainLogger("FCN_VGG")
+    logger = TrainLogger("DeepLab")
     model = DeepLab(in_channels=3,out_channels=N_CLASSES)
     train_dataloader = PascalDataloader(train=True,batch_size=BATCH_SIZE,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY)
