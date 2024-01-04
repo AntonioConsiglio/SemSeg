@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.join(Path(__file__).parent.parent))
 
 from unet.trainer import TrainerUNET
-from common import TrainLogger,PascalDataloader,SBDDataloader
+from common import TrainLogger,PascalDataloader,SBDDataloader,set_all_seeds
 import albumentations as A
 
 from unet.model import UNET
@@ -12,12 +12,12 @@ import yaml
 
 TRAIN_TRANSFORM = A.Compose([
     A.Resize(512,512),
-    A.HorizontalFlip(),
-    A.VerticalFlip(),
-    A.Rotate((-90,90)),
+    #A.HorizontalFlip(),
+    #A.VerticalFlip(),
+    #A.Rotate((-90,90)),
     # A.PadIfNeeded(min_height=320,min_width=320),
     A.RandomCrop(320,320),
-    A.ColorJitter(),
+    #A.ColorJitter(),
     # A.GridDistortion(),
 ])
 
@@ -25,11 +25,13 @@ EVAL_TRANSFORM = A.Compose([
     A.Resize(512,512),
 ])
 
-with open(os.path.join("unet","unet_cfg.yml"), 'r') as file:
-    # Load the YAML content
-    cfg = yaml.safe_load(file)
+set_all_seeds()
 
 if __name__ == "__main__":
+
+    with open(os.path.join("unet","unet_cfg.yml"), 'r') as file:
+        # Load the YAML content
+        cfg = yaml.safe_load(file)
     
     train_cfg = cfg["training"]
     N_CLASSES = train_cfg.get("n_classes",21)

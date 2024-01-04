@@ -143,7 +143,7 @@ class ContextManager():
         with torch.no_grad():
             self.train_loss_collection.append(torch.mean(loss).item())
 
-        self.scaler.scale(loss).backward()
+        self.scaler.scale(loss/self.batch_acc).backward()
 
         if (self.epoch * self.curr_batch) % self.batch_acc == 0:
 
@@ -258,7 +258,7 @@ class ContextManager():
         self.optim.load_state_dict(checkpoint.get("optim"))
         self.scaler.load_state_dict(checkpoint.get("scaler"))
         if checkpoint.get("lr_scheduler") is not None:
-            self.lr_scheduler.load_state_dict("lr_scheduler")
+            self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler"))
         self.best_metric = checkpoint.get("best_metric")
         self.epoch = checkpoint.get("epoch")+1
 
@@ -340,7 +340,10 @@ class ContextManager():
 
     def _get_lr_scheduler(self,lr_config):
         if lr_config is not None:
-            return None
+            for lr_scheduler,params in lr_config.items():
+                lr_class = getattr(torch.optim.lr_scheduler,lr_scheduler)
+                lr_scheduler = lr_class(self.optim,**params)
+                return lr_scheduler
         
         return None
 
