@@ -1,0 +1,34 @@
+
+task: "segmentation"
+epochs: 400
+checkpoint_step: 1
+validate_after: 1
+autocast: False
+#eval_checkpoint: 
+#eval_weights: 
+
+training:
+
+  n_classes: 21
+  batch_acc: 2
+  batch_size: 4
+  num_worker: 4
+  pin_memory: True
+  forward_hooks: False
+  #checkpoint: 
+  caffe_pretrained: False
+  max_iter: 100000 #max total batch iteration
+
+  loss_function:
+    ce: null
+    params:
+      reduction: "mean"
+
+  optim:
+    SGD:
+      momentum: 0.9
+      weight_decay: 0.0005
+      lr: 1.0e-3
+      
+
+
