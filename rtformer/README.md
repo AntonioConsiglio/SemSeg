@@ -48,5 +48,5 @@ img credits: https://arxiv.org/pdf/2210.07124.pdf
 
 |**Model**|**Ref**|**Pretrained**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|---|
-|**U-NET**| Paper | ImageNet | - | - | - | - | [-]|
-|**U-NET**| mine | ImageNet | - | - | - | - |[[weights]()]|
+|**RTFormer-Slim**| mine | ImageNet | - | - | - | - | [[weights]()]|
+|**RTFormer-Base**| mine | ImageNet | - | - | - | - |[[weights]()]|
