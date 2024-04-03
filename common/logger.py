@@ -17,16 +17,20 @@ LOG_LEVELS ={
 }
 
 class TrainLogger():
-    def __init__(self,model_name:str, log_lvl:str = "debug",log_dir:str ="./logs") -> None:
+    def __init__(self,model_name:str,
+                 exp_name:str = None, 
+                 log_lvl:str = "debug",
+                 log_dir:str ="./logs") -> None:
 
-        self.log_dir = self._get_example_folder(log_dir,model_name)
+        self.log_dir = self._get_example_folder(log_dir,model_name,exp_name)
         self.logger = self._create_logger(log_lvl,self.log_dir)
         self.tb_writer = SummaryWriter(log_dir=self.log_dir)
 
     
-    def _get_example_folder(self,log_dir,model_name):
+    def _get_example_folder(self,log_dir,model_name,exp_name):
         data = datetime.today().strftime("%Y%m%d_%H%M%S")
-        example_logdir = os.path.join(log_dir,model_name,data)
+        exp_name = f"{data}_{exp_name if exp_name is not None else ''}"
+        example_logdir = os.path.join(log_dir,model_name,exp_name)
         os.makedirs(example_logdir,exist_ok=True)
         return example_logdir
     

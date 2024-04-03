@@ -32,15 +32,21 @@ class callbacks:
     TRAIN_EPOCH_END = "train_epoch_end"
     EVAL_EPOCH_END = "eval_epoch_end"
     EPOCH_END = "epoch_end"
+
 class ContextManager():
     '''
         This class create the context of the training process
     '''
-    def __init__(self,model,logger,cfg:dict,device:str = "cpu",get_optim_fn:Optional[Any] = None):
+    def __init__(self,model,logger,
+                 cfg:dict,
+                 device:str = "cpu",
+                 get_optim_fn:Optional[Any] = None,
+                 add_callbacks:Optional[list] = None):
 
         self.device = device
         self.model = model
         self.logger = logger
+        self.add_callbacks = add_callbacks #TODO: Possibility to add external callback like Image Result saving etc.
         self.logger.save_exp_cfg(cfg)
         self.checkpoints_dir = os.path.join(logger.log_dir,"checkpoints")
         os.makedirs(self.checkpoints_dir,exist_ok=True)
@@ -66,13 +72,21 @@ class ContextManager():
 
         if self.task == "segmentation":
             self.train_metrics = MetricCollection([
+                            Accuracy(task = "multiclass",num_classes=n_classes),
                             JaccardIndex(task="multiclass",num_classes=n_classes,average="none"),
+                            ])
+
+            self.eval_metrics = MetricCollection([
+                            Accuracy(task = "multiclass",num_classes=n_classes,ignore_index=n_classes),
+                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none",ignore_index=n_classes),
+                            ])
+        else:
+            self.train_metrics = MetricCollection([
                             Accuracy(task = "multiclass",num_classes=n_classes)
                             ])
 
             self.eval_metrics = MetricCollection([
-                            JaccardIndex(task="multiclass",num_classes=n_classes,average="none",ignore_index=21),
-                            Accuracy(task = "multiclass",num_classes=n_classes,ignore_index=21)
+                            Accuracy(task = "multiclass",num_classes=n_classes)
                             ])
 
         
@@ -164,6 +178,9 @@ class ContextManager():
 
             self._create_hooks_plot(self.curr_batch)
         
+        if self.lr_scheduler is not None:
+            self.lr_scheduler.step()
+            
         self.curr_batch +=1
 
         return torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
@@ -183,8 +200,8 @@ class ContextManager():
         epoch_metrics = self._get_metrics_dict(self.train_metrics,True)
         epoch_avg_metrics = self._get_average(epoch_metrics)
 
-        if self.lr_scheduler is not None:
-            self.lr_scheduler.step()
+        # if self.lr_scheduler is not None:
+        #     self.lr_scheduler.step()
 
         self.train_loss_collection = []
         self.curr_batch = 1
@@ -226,6 +243,7 @@ class ContextManager():
         miou,accuracy = kargs.get("iou",0),kargs.get("accuracy",0)
         
         save_best = False
+        if miou == 0: miou = accuracy
         if self.best_metric < miou:
             self.best_metric = miou
             save_best = True
@@ -244,7 +262,7 @@ class ContextManager():
         if save_best:
             torch.save(checkpoint,os.path.join(self.checkpoints_dir,"best.pt"))
 
-        #torch.save(checkpoint,os.path.join(self.checkpoints_dir,"last.pt"))
+        torch.save(checkpoint,os.path.join(self.checkpoints_dir,"last.pt"))
         # reset metrics at the end of each epoch
         self.train_metrics.reset()
         self.eval_metrics.reset()
@@ -256,8 +274,11 @@ class ContextManager():
         checkpoint = torch.load(checkpoint,map_location=self.device)
         self.model.load_state_dict(checkpoint.get("model"))
         self.optim.load_state_dict(checkpoint.get("optim"))
-        self.scaler.load_state_dict(checkpoint.get("scaler"))
-        if checkpoint.get("lr_scheduler") is not None:
+        try:
+            self.scaler.load_state_dict(checkpoint.get("scaler"))
+        except Exception as e:
+            self.logger.info(e)
+        if checkpoint.get("lr_scheduler") is not None and self.lr_scheduler is not None:
             self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler"))
         self.best_metric = checkpoint.get("best_metric")
         self.epoch = checkpoint.get("epoch")+1
@@ -287,8 +308,11 @@ class ContextManager():
             pred = pred[0]
 
         with torch.no_grad():
+            # if self.task == "segmentation":
+            #     activ_pred = torch.argmax(pred,dim=1)
+            # else:
             activ_pred = torch.argmax(pred,dim=1)
-        
+
         activ_pred = activ_pred.cpu()
         target = target.cpu()
 
@@ -305,7 +329,7 @@ class ContextManager():
             return sum(obj)/len(obj)
         
         averages = {}
-        keys = ["iou","accuracy"]
+        keys = ["accuracy","iou"]
         
         if isinstance(obj,dict):
             for k, (_, vals)in zip(keys,obj.items()):
@@ -352,3 +376,7 @@ class ContextManager():
             return self.lr_scheduler.get_last_lr()[0]
         
         return self.optim.param_groups[0]["lr"]
+    
+    def set_lr(self,new_lr):
+        for params in self.optim.param_groups:
+            params["lr"] *= new_lr

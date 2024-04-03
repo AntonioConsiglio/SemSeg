@@ -160,13 +160,12 @@ cython_debug/
 #.idea/
 
 common/datasets/pascalvoc12/*
-
+common/datasets/imagenet/*
 common/datasets/sbd/*
 !common/datasets/sbd/get_mask_from_mat_file.ipynb
 test.ipynb
 logs/*
 *.pth
 
+datasets.zip
 .vscode/
-*.png
-*.zip
