@@ -12,7 +12,7 @@ The main objective of this repository is to implement and train various architec
 Below is a list of architectures that will be implemented. Each architecture is accompanied by a link to the original paper.
 
 - [x] [FCN-VGG16](https://github.com/AntonioConsiglio/SemSeg/tree/main/fcn_vgg16) (2014)
-- [ ] [U-Net](https://arxiv.org/pdf/1505.04597.pdf) (2015)
+- [ ] [U-Net](https://github.com/AntonioConsiglio/SemSeg/tree/main/unet) (2015)
 - [ ] [ParseNet](https://arxiv.org/pdf/1506.04579.pdf) (2016)
 - [ ] [SegNet](https://arxiv.org/pdf/1511.00561.pdf) (2016)
 - [ ] [PSPNet](https://arxiv.org/pdf/1612.01105.pdf) (2017)
@@ -23,6 +23,7 @@ Below is a list of architectures that will be implemented. Each architecture is 
 - [ ] [STDC-Seg](https://arxiv.org/pdf/2104.13188.pdf) (2021)
 - [ ] [SegFormer](https://arxiv.org/pdf/2104.13188.pdf) (2021)
 - [ ] [PPLiteSeg](https://arxiv.org/pdf/2204.02681.pdf) (2022)
+- [ ] [RTFormer](https://arxiv.org/pdf/2210.07124.pdf) (2022)
 
 ## 3) Setting up the Environment
 
