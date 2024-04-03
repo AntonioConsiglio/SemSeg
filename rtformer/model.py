@@ -46,10 +46,12 @@ class RTFormer(nn.Module):
                  cross_size=12,
                  in_channels=3,
                  pretrained=None):
-        super().__init__(use_aux_heads=use_aux_heads)
+        
+        super().__init__()
         self.base_channels = base_channels
         base_chs = base_channels
         self.out_shape = None
+        self.use_aux_heads = use_aux_heads
         self.conv1 = nn.Sequential(
             nn.Conv2d(
                 in_channels, base_chs, kernel_size=3, stride=2, padding=1),
@@ -669,13 +671,14 @@ class RTFormerSlim(RTFormer):
                  in_channels= in_channels,
                  pretrained=None
                 )
+        
 
 class RTFormerBase(RTFormer):
    
-    def __init__(self,in_channels=3,num_classes=21,use_aux_heads=True ):
+    def __init__(self,in_channels=3,n_class=21,use_aux_heads=True ):
         
         super().__init__(
-                num_classes = num_classes,
+                num_classes = n_class,
                  layer_nums=[2, 2, 2, 2],
                  base_channels=64,
                  spp_channels=128,
@@ -689,6 +692,15 @@ class RTFormerBase(RTFormer):
                  in_channels= in_channels,
                  pretrained=None
                 )
+        
+        statedict = self.state_dict()
+        backbones_dict = torch.load("./rtformer/pretrained/RTFormer_imagenet_pretrained.pth",map_location="cpu")
+        for k,v in backbones_dict.items():
+            if k in statedict:
+                statedict[k] = v
+        
+        self.load_state_dict(statedict)
+        
 
 
 if __name__ == "__main__":
