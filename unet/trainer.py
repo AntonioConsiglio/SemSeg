@@ -1,22 +1,31 @@
-from logging import Logger
-from tqdm import tqdm
+# from logging import Logger
+# from tqdm import tqdm
 
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
 from torch.nn  import Module
-import torch
+# import torch
 
-from common.trainer import Trainer
-from common.callbacks import ContextManager,callbacks
+from common.trainer import Trainer,BaseTrainer
+# from common.callbacks import ContextManager,callbacks
 from common.logger import TrainLogger
 
+# import matplotlib.pyplot as plt
 
 class TrainerUNET(Trainer):
 
     def __init__(self,
                  model:Module,
                  logger:TrainLogger,
-                 cfg:dict):
-        
+                 cfg:dict,
+                 classification:bool=False):
+        super().__init__(model=model,logger=logger,cfg=cfg,classification=classification)
+"""   
+    def __init__(self,
+                 model:Module,
+                 logger:TrainLogger,
+                 cfg:dict,
+                 classification:bool=False):
+        super().__init__()
         self.model = model
         self.logger = logger
         self.cfg = cfg
@@ -24,27 +33,34 @@ class TrainerUNET(Trainer):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.autocast = cfg.get("autocast",False)
         # Create the context instance that handle training callbacks
-        self.context = ContextManager(self.model,self.logger,self.cfg,
-                                      self.device,self._get_optim)
+        self.context = ContextManager(self.model,self.logger,
+                                      self.cfg,self.device,
+                                      self._get_optim if not classification else self._get_optim_clas)
 
 
     def train(self,
               train_loader:DataLoader,
               val_loader:DataLoader,
               max_iter:int = None,
-              checkpoint=None) -> None:
+              checkpoint=None,
+              freeze_backbone=False) -> None:
         
         epochs = self.cfg.pop("epochs",10)
         start_epoch = 1
         # model to device - cuda if exist
         self.model.to(self.device)
 
+        if freeze_backbone:
+            for m in self.model.down_layers.modules():
+                m.requires_grad = False
+
+
         # restart training process from checkpoint
         if checkpoint is not None:
             start_epoch = self._load_checkpoint(checkpoint)
         
         self.max_iter = max_iter
-        self.batch_iter = len(train_loader)       
+        self.batch_iter = len(train_loader)    
 
         for epoch in range(start_epoch,epochs):
             
@@ -52,16 +68,24 @@ class TrainerUNET(Trainer):
             train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
             self.train_epoch(train_loop,epoch-1)
             train_loss,train_metrics,train_avg_metrics = self.context(callbacks.TRAIN_EPOCH_END)
+            
+            if not "iou" in train_avg_metrics:
+                train_avg_metrics["iou"] = 0.0
 
             self.logger.write_scalar(epoch,"TRAIN",train_loss, self.context.get_lr(), metric=train_avg_metrics)
             
             # Evaluation step
             eval_loss = 0
             eval_avg_metrics = {}
+            eval_avg_metrics["iou"] = 0.0
+            eval_avg_metrics["accuracy"] = 0.0
             if epoch % self.eval_epoc_step == 0: 
                 eval_loop = tqdm(val_loader,desc=f"Eval epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
                 self.evaluate_epoch(eval_loop)
                 eval_loss,eval_metrics,eval_avg_metrics = self.context(callbacks.EVAL_EPOCH_END)
+
+                if not "iou" in eval_avg_metrics:
+                    eval_avg_metrics["iou"] = 0.0
 
                 self.logger.write_scalar(epoch,"EVAL",eval_loss, metric=eval_avg_metrics)
 
@@ -117,16 +141,20 @@ class TrainerUNET(Trainer):
                     if (batch+1) + self.batch_iter*epoch > self.max_iter:
                         print("Max iter reached")
                         break
-
-                images,target = images.to(self.device),target.to(self.device)
-
-                preds = self.model(images)
-
-                train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
-                                                              preds = preds, target = target)
+                if batch == 10:
+                    break
+                train_loss,train_avg_metrics = self.train_batch(images,target)
 
                 dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
+    def train_batch(self,images,target):
+
+        images,target = images.to(self.device),target.to(self.device)
+        preds = self.model(images)
+        train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
+                                                        preds = preds, target = target)
+        
+        return train_loss,train_avg_metrics
 
     def evaluate_epoch(self,dataloader:tqdm,save_image=False):
         
@@ -148,30 +176,85 @@ class TrainerUNET(Trainer):
         return self.context._load_checkpoint(checkpoint)
     
     @staticmethod
-    def _get_optim(model,optim_cfg:dict):
+    def _get_optim_clas(model,optim_cfg:dict):
 
-        def get_fcn_params(model,bias):
+        for optim,params in optim_cfg.items():      
+            optim_class = getattr(torch.optim,optim)
+            optim = optim_class(model.parameters(),**params)
+            return optim
+        
+    @staticmethod
+    def _get_optim(model:torch.nn.Module,optim_cfg:dict):
 
-            for m in model.modules():
-                if isinstance(m, torch.nn.Conv2d):
-                    if bias:
-                        yield m.bias
+        def get_fcn_params(model:torch.nn.Module,bias,kfilter=None):
+            for k,m in model.named_modules():
+                if kfilter is None or k in kfilter:
+                    if isinstance(m, torch.nn.Conv2d):
+                        if bias:
+                            if m.bias is not None: yield m.bias
+                        else:
+                            yield m.weight
+                    elif isinstance(m, torch.nn.ConvTranspose2d):
+                        if bias:
+                            yield m.bias
+                        else:
+                            yield m.weight
+                    elif isinstance(m,torch.nn.BatchNorm2d):
+                        if bias:
+                            yield m.bias
+                        else:
+                            yield m.weight
                     else:
-                        yield m.weight
-                elif isinstance(m, torch.nn.ConvTranspose2d):
-                    if bias:
-                        yield m.bias
-                    else:
-                        yield m.weight
-                else:
-                    continue
+                        continue
 
         for optim,params in optim_cfg.items():      
             optim_class = getattr(torch.optim,optim)
             lr = params.get("lr")
-            optim = optim_class([{"params": get_fcn_params(model,bias=False)},
-                                    {"params": get_fcn_params(model,bias=True),
-                                    "lr":lr * 2 ,"weight_decay":0}],**params)
+
+            paramsname = [k.replace(".weight","").replace(".bias","") for k in model.state_dict().keys()]
+            downlayers = [k for k in paramsname if "down_layers" in k]
+            uplayers = [k for k in paramsname if k not in downlayers]
+
+
+            optim = optim_class([{"params": get_fcn_params(model,bias=False,kfilter=uplayers,)},
+                                 {"params": get_fcn_params(model,bias=False,kfilter=downlayers),"lr":lr * 1},
+                                 {"params": get_fcn_params(model,bias=True,kfilter=uplayers),"lr":lr * 2 ,"weight_decay":0},
+                                 {"params": get_fcn_params(model,bias=True,kfilter=downlayers),"lr":lr * 2,"weight_decay":0}],
+                                **params)
             return optim
             
-    
+    def find_best_lr(self,dataloader):
+        self.model.to(self.device)
+        self.model.train()
+        self.context.optim.zero_grad()
+        loop = tqdm(dataloader)
+        with torch.cuda.amp.autocast(enabled=self.autocast):
+            for batch,(images,target) in enumerate(loop):
+                
+                train_loss,_ = self.train_batch(images,target)
+                curr_lr = self.context.get_lr()
+                loop.set_postfix(loss=f"{train_loss:.2f}",lr=curr_lr)
+
+                new_lr = self.lr_finder(train_loss,curr_lr,lr_multuply=1.15)
+                if not new_lr: break
+                self.context.set_lr(new_lr)
+
+        
+        # Extract x and y values from the data
+        lrs = [el[0] for el in self.lr_finder_loss]
+        losses = [el[1] for el in self.lr_finder_loss]
+
+        # Plot the data
+        plt.plot(lrs, losses, 'b-x')  # 'bo' means blue color and circle markers
+        plt.xlabel('LR (log10)')
+        plt.ylabel('Batch Loss')
+        plt.ylim(top=10,bottom=0)
+        plt.title('Plot of Data')
+        plt.xscale("log")
+        plt.grid(True)
+        plt.savefig("plot_image.png")
+        plt.show()
+        
+        
+        
+"""         

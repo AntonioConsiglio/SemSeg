@@ -1,0 +1,42 @@
+
+task: "classification"
+epochs: 1500
+checkpoint_step: 5
+validate_after: 1
+autocast: False
+#eval_checkpoint: 
+#eval_weights: 
+
+training:
+
+  n_classes: 1000
+  batch_acc: 1
+  batch_size: 256 #256
+  num_worker: 8
+  pin_memory: True
+  forward_hooks: False
+  #checkpoint: /projects/SemSeg/logs/UNET/20240323_151414_first_experiment/checkpoints/checkpoints10.pt
+  caffe_pretrained: False
+  max_iter: null #max total batch iteration
+
+  loss_function:
+    ce: null
+    params:
+      reduction: "mean"
+
+  optim:
+    # SGD:
+    #   momentum: 0.9
+    #   weight_decay: 0.005
+    #   lr: 1.0e-4
+    Adam:
+      lr: 1.0e-04
+  
+  # lr_scheduler:
+  #   PolynomialLR: 
+  #     total_iters: 1500
+  #     power: 0.99
+
+      
+
+
