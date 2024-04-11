@@ -3,6 +3,7 @@ import torch
 
 from common.trainer import Trainer
 from common.logger import TrainLogger
+from common.callbacks import VisualizeSegmPredCallback,callbacks
 
 class TrainerRTFormer(Trainer):
 
@@ -11,13 +12,15 @@ class TrainerRTFormer(Trainer):
                  logger:TrainLogger,
                  cfg:dict,
                  classification:bool=False,
-                 device=None):
+                 device=None,
+                 custom_callbacks = None):
         
         super().__init__(model=model,
                          logger=logger,
                          cfg=cfg,
                          classification=classification,
-                         device=device)
+                         device=device,
+                         custom_callbacks=custom_callbacks)
             
         
         

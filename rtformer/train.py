@@ -6,28 +6,35 @@ import argparse
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 from rtformer.trainer import TrainerRTFormer
 from common import TrainLogger,PascalDataloader,SBDDataloader,set_all_seeds
+from common.callbacks import callbacks,VisualizeSegmPredCallback
 import albumentations as A
 import cv2 
 
 from rtformer.model import RTFormerBase
 import yaml
 
+IMG_SHAPE = 320
+EVAL_SHAPE = 512
+
 TRAIN_TRANSFORM = A.Compose([
     #A.Resize(512,512),
     A.HorizontalFlip(),
+    A.VerticalFlip(),
+    A.RandomBrightnessContrast(),
+    A.RandomScale([-0.5,1],always_apply=True),
     #A.VerticalFlip(),
     A.RandomBrightnessContrast(),
-    A.Rotate((-20,20),border_mode=cv2.BORDER_CONSTANT),
-    A.PadIfNeeded(min_height=320,min_width=320,border_mode=cv2.BORDER_CONSTANT),
-    A.RandomCrop(320,320),
+    A.Rotate((-30,30),border_mode=cv2.BORDER_CONSTANT),
+    A.PadIfNeeded(min_height=IMG_SHAPE,min_width=IMG_SHAPE,border_mode=cv2.BORDER_CONSTANT),
+    A.RandomCrop(IMG_SHAPE,IMG_SHAPE),
     #A.ColorJitter(),
     # A.GridDistortion(),
 ])
 
 EVAL_TRANSFORM = A.Compose([
     #A.Resize(512,512),
-    A.PadIfNeeded(min_height=512,min_width=512,border_mode=cv2.BORDER_CONSTANT),
-    A.CenterCrop(512,512)
+    A.PadIfNeeded(min_height=EVAL_SHAPE,min_width=EVAL_SHAPE,border_mode=cv2.BORDER_CONSTANT),
+    A.CenterCrop(EVAL_SHAPE,EVAL_SHAPE)
 ])
 
 set_all_seeds()
@@ -42,8 +49,8 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(file)
     
     DEVICE = cfg.get("device",None)
+    N_CLASSES = cfg.get("n_classes",21)
     train_cfg = cfg["training"]
-    N_CLASSES = train_cfg.get("n_classes",21)
     BATCH_SIZE = train_cfg.get("batch_size",4)
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
@@ -69,8 +76,14 @@ if __name__ == "__main__":
         for k,_ in train_cfg["lr_scheduler"].items():
             train_cfg["lr_scheduler"][k]["total_iters"] *= len(train_dataloader)
 
+    #custom callbacks
+    custom_callbacks = {callbacks.EVAL_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
+                                                                            dataset = eval_dataloader.dataset,
+                                                                            exec_frequence=3,num_images=6)]}
+
     # Create Trainer instance
-    trainer = TrainerRTFormer(model=model,logger=logger,cfg=cfg,device=DEVICE)
+    trainer = TrainerRTFormer(model=model,logger=logger,cfg=cfg,device=DEVICE,
+                              custom_callbacks = custom_callbacks)
 
     if train_cfg.get("find_best_lr",False):
         trainer.find_best_lr(train_dataloader)
