@@ -7,6 +7,7 @@ from PIL import Image
 import numpy as np
 import torch
 from tqdm import tqdm
+from copy import deepcopy
 
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
@@ -66,6 +67,7 @@ class SBDDataloader(DataLoader):
                          num_workers=num_workers,
                          pin_memory=pin_memory,
                          shuffle=train)
+    
         
 class PascalDataloader(DataLoader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
@@ -84,11 +86,19 @@ class PascalDataloader(DataLoader):
                          pin_memory=pin_memory,
                          shuffle=train)
 
+
+
 class BaseDataset(Dataset):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
     
+    def get_color_map(self):
+        if hasattr(self,"colormap_dict"):
+            return deepcopy(self.colormap_dict)
+        else:
+            return None
+
     @classmethod
     def _get_mean_std(cls,root):
         '''
@@ -218,6 +228,21 @@ class PascalVocDataset(BaseDataset):
         
         return class_target
     
+    def class_index_to_rgb(self,class_target:torch.Tensor):
+        # Create an empty array for the mask
+        size = list(class_target.size()[:-1]) + [3]
+        rgb_output = torch.zeros_like(size, dtype=torch.uint8)
+        
+        # Loop through the colormap dictionary and assign class indices based on RGB values
+        for class_index, rgb_value in self.colormap_dict.items():
+            # Create a boolean mask for pixels with the current RGB value
+            mask = torch.eq(class_target,class_index)
+            
+            # Assign the class index to the corresponding pixels in the class target
+            rgb_output[mask] = rgb_value
+        
+        return rgb_output
+    
     def _save_samples(self,image,mask,sample):
         
         img2save = Image.fromarray((image.numpy().transpose(1,2,0)*255).astype(np.uint8))
@@ -241,7 +266,7 @@ class SBD(PascalVocDataset):
 
         image = np.array(Image.open(sample["img"]).convert("RGB"))
         mask = np.array(Image.open(sample["mask"]).convert("L"))
-
+        
         if self.augmenter is not None:
 
             augmented = self.augmenter(image = image, mask = mask)

@@ -88,7 +88,6 @@ class DoubleUpConv(nn.Module):
                           out_channels=out_channels,
                           kernel_size=1,bias=True,stride=1,padding=0))
 
-        self.dropout = nn.Dropout2d(dropout)
         self.doubleconv = DoubleConv(in_channels=in_channels,
                                     out_channels=out_channels,
                                     kernel_size=kernel_size,
@@ -96,6 +95,8 @@ class DoubleUpConv(nn.Module):
                                     dilatation=dilatation,
                                     activation=activation,
                                     norm=norm)
+        
+        self.dropout = nn.Dropout2d(dropout)
     
     def forward(self,x:torch.Tensor,x_skip:torch.Tensor) -> torch.Tensor:
 

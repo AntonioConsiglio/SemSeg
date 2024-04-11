@@ -11,6 +11,7 @@ from common.backbones.layers import ConvBlock
 from common.backbones.vgg import VGGExtractor
 import cv2
 import numpy as np
+import random
 
 AVOID_HOOKS = (
     torch.nn.Sequential,
@@ -27,11 +28,138 @@ AVOID_HOOKS = (
 )
 
 class callbacks:
+    #train
+    PRE_TRAIN_BATCH = "train_batch_start"
     TRAIN_BATCH_END = "train_batch_end"
-    EVAL_BATCH_END = "eval_batch_end"
     TRAIN_EPOCH_END = "train_epoch_end"
+    #eval
+    EVAL_BATCH_END = "eval_batch_end"
     EVAL_EPOCH_END = "eval_epoch_end"
+    #epoch
     EPOCH_END = "epoch_end"
+
+class VisualizeSegmPredCallback:
+    def __init__(self,
+                 logger,
+                 n_class,
+                 dataset,
+                 exec_frequence=10,
+                 num_images = 4,):
+        
+        self.logger = logger
+        self.n_class = n_class
+        self.num_images = num_images
+        self.dataset = dataset
+        self.store_dataset_mean_and_std()
+
+        self.color_map:dict = self.dataset.get_color_map()
+        self.exec_frequence = exec_frequence
+
+        if self.color_map is None: 
+            self.color_map = {}
+            self.create_colormap()
+
+        else: self.check_colormap()
+    
+    def store_dataset_mean_and_std(self,):
+        if hasattr(self.dataset,"mean"): self.mean = torch.tensor(self.dataset.mean).reshape([1,3,1,1])
+        else: self.mean = torch.zeros([1,3,1,1])
+
+        if hasattr(self.dataset,"std"): self.std = torch.tensor(self.dataset.std).reshape([1,3,1,1])  
+        else: self.std = torch.ones([1,3,1,1])
+
+    def create_colormap(self):
+        for n in range(self.n_class):
+            self.color_map[n] = self.get_random_color()
+    
+    def get_random_color(self):
+        # Define regions in the color space
+        color_regions = [
+            (0, 85),    # Region 1 for red
+            (86, 170),  # Region 2 for green
+            (171, 255)  # Region 3 for blue
+        ]
+        
+        # Shuffle the color regions
+        random.shuffle(color_regions)
+        
+        not_generate = False
+        while not not_generate:
+            not_generate = True
+            # Generate random values within each region
+            red = random.randint(color_regions[0][0], color_regions[0][1])
+            green = random.randint(color_regions[1][0], color_regions[1][1])
+            blue = random.randint(color_regions[2][0], color_regions[2][1])
+            
+            # Create a torch tensor from the RGB values
+            color_tensor = torch.tensor([red, green, blue], dtype=torch.float32) / 255.0
+
+            for color in self.color_map.values():
+                if torch.all(torch.eq(color_tensor, color)):
+                    not_generate = False
+                    break
+                
+        return color_tensor
+
+    def check_colormap(self,):
+        if isinstance(self.color_map,dict):
+            for k,v in self.color_map.items():
+                assert isinstance(k,int)
+                if not isinstance(v,torch.Tensor):
+                    v = torch.tensor(v).reshape([1,3])/255.0
+                else: 
+                    if not v.size() == torch.Size([1,3]):
+                        v = v.reshape([1,3])
+                self.color_map[k] = v.float()
+
+    def class_index_to_rgb(self,class_target:torch.Tensor):
+        # Create an empty array for the mask
+        size = list(class_target.size()[:3]) + [3]
+        rgb_output = torch.zeros(size, dtype=torch.float)
+        
+        # Loop through the colormap dictionary and assign class indices based on RGB values
+        for class_index, rgb_value in self.color_map.items():
+            # Create a boolean mask for pixels with the current RGB value
+            mask = torch.eq(class_target,class_index)
+            
+            # Assign the class index to the corresponding pixels in the class target
+            rgb_output[mask] = rgb_value
+        
+        return rgb_output
+    
+    def denorm_images(self,images):
+        images *= self.std
+        images += self.mean
+        return images
+        
+    def create_grid(self,images,target,preds):
+        denorm_images = self.denorm_images(images[:self.num_images,...])
+        rgb_targets = self.class_index_to_rgb(target[:self.num_images,...]).permute((0,3,1,2))
+        rgb_preds = self.class_index_to_rgb(torch.argmax(preds[0],dim=1)[:self.num_images,...]).permute((0,3,1,2))
+        grid = []
+        for t,i,p in zip(rgb_targets,denorm_images,rgb_preds):
+            grid.append(t)
+            grid.append(i)
+            grid.append(p)
+        
+        return grid
+
+    def __call__(self,**kwargs):
+        images,target,preds = kwargs.get("images"),kwargs.get("target"),kwargs.get("preds")
+        batch,epoch = kwargs.get("batch",None),kwargs.get("epoch",None)
+        stage = kwargs.get("stage","Train")
+
+        #Save batch:
+        if batch is not None and batch % self.exec_frequence == 0:
+            self.logger.write_images(grid = self.create_grid(images,target,preds),
+                                     description = f"{stage}_Batch{str(batch).zfill(3)}",
+                                     step = epoch)
+        elif epoch is not None and batch is None and epoch % self.exec_frequence == 0:
+            self.logger.write_images(grid = self.create_grid(images,target,preds),
+                                     description = f"{stage}_aFinal_Epoch_Batch",
+                                     step = epoch)
+        
+
 
 class ContextManager():
     '''
@@ -40,13 +168,11 @@ class ContextManager():
     def __init__(self,model,logger,
                  cfg:dict,
                  device:str = "cpu",
-                 get_optim_fn:Optional[Any] = None,
-                 add_callbacks:Optional[list] = None):
+                 get_optim_fn:Optional[Any] = None):
 
         self.device = device
         self.model = model
         self.logger = logger
-        self.add_callbacks = add_callbacks #TODO: Possibility to add external callback like Image Result saving etc.
         self.logger.save_exp_cfg(cfg)
         self.checkpoints_dir = os.path.join(logger.log_dir,"checkpoints")
         os.makedirs(self.checkpoints_dir,exist_ok=True)
@@ -54,10 +180,10 @@ class ContextManager():
         self.task = cfg.get("task","segmentation")
         self.checkpoint_step = cfg.get("checkpoint_step",10) # step for training checkpoint saving
         self.autocast = cfg.get("autocast",True)
+        n_classes = cfg.get("n_classes",None)
         self.scaler = GradScaler(enabled=self.autocast)
 
         training_cfg = cfg.get("training")
-        n_classes = training_cfg.get("n_classes",None)
         loss_function = training_cfg.get("loss_function",None)
         self.aux_loss_weight = training_cfg.get("aux_loss_weight",None)
         self.batch_acc = training_cfg.get("batch_acc",1)
@@ -223,7 +349,7 @@ class ContextManager():
 
         self.curr_batch += 1
 
-        return #torch.mean(loss).item(),batch_metrics,epoch_avg_metrics
+        return None,None,None
 
 
     def _eval_epoch_call(self):
@@ -273,13 +399,22 @@ class ContextManager():
         
         checkpoint = torch.load(checkpoint,map_location=self.device)
         self.model.load_state_dict(checkpoint.get("model"))
-        self.optim.load_state_dict(checkpoint.get("optim"))
+        if checkpoint.get("optim") is not None:
+            param_groups = self.optim.param_groups
+            self.optim.load_state_dict(checkpoint.get("optim"))
+            self.optim.param_groups = param_groups
         try:
             self.scaler.load_state_dict(checkpoint.get("scaler"))
         except Exception as e:
             self.logger.info(e)
         if checkpoint.get("lr_scheduler") is not None and self.lr_scheduler is not None:
+            total_iters = self.lr_scheduler.total_iters
             self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler"))
+            if total_iters != self.lr_scheduler.total_iters:
+                self.lr_scheduler.total_iters = total_iters
+                decayfactor = (1 - self.lr_scheduler.last_epoch / total_iters) ** self.lr_scheduler.power
+                for group in self.optim.param_groups:
+                    group["lr"] = group["lr"] * decayfactor
         self.best_metric = checkpoint.get("best_metric")
         self.epoch = checkpoint.get("epoch")+1
 

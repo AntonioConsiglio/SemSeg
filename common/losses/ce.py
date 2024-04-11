@@ -5,7 +5,7 @@ import torch
 
 class CELoss(Module):
     def __init__(self,weights=None,
-                 ignore_index:int = 21,
+                 ignore_index:int = -1,
                  reduction:str = "mean"):
         super().__init__()
         if weights is not None:
@@ -18,5 +18,7 @@ class CELoss(Module):
     def forward(self,pred:Tensor,target:Tensor):
 
         target = target.long()
+        if 1 in list(target.size()):
+            target = target.squeeze()
         
         return self.criterion(pred,target)

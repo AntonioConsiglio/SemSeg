@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import math
 from tqdm import tqdm
+from typing import Optional
 
 from torch.utils.data import DataLoader
 from torch.nn  import Module
@@ -60,11 +61,13 @@ class Trainer(BaseTrainer):
                  logger:TrainLogger,
                  cfg:dict,
                  classification:bool=False,
-                 device=None):
+                 device=None,
+                 custom_callbacks:Optional[dict[callbacks,list]] = None):
         super().__init__()
         self.model = model
         self.logger = logger
         self.cfg = cfg
+        self.custom_callbacks = custom_callbacks #TODO: Possibility to add external callback like Image Result saving etc.
         self.eval_epoc_step = self.cfg.get("validate_after",1)
         self.device = device
         if self.device is None: self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -100,6 +103,7 @@ class Trainer(BaseTrainer):
 
         for epoch in range(start_epoch,epochs):
             
+            self.epoch = epoch
             # Train step
             train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
             self.train_epoch(train_loop,epoch-1)
@@ -130,11 +134,13 @@ class Trainer(BaseTrainer):
             final_text = "EPOCH {}: \n\
                                 Train_loss: {:.4f} - Eval_loss: {:.4f}, \n\
                                 Train mIou : {:.4f} - Eval mIoU : {:.4f}, \n\
-                                Train Acc: {:.4f} - Eval Acc: {:.4f} ".format(epoch,train_loss,eval_loss,
+                                Train Acc: {:.4f} - Eval Acc: {:.4f} \n\
+                                Best Score: {:.4f} ".format(epoch,train_loss,eval_loss,
                                                                      train_avg_metrics["iou"],
                                                                       eval_avg_metrics["iou"],
                                                                        train_avg_metrics["accuracy"],
-                                                                        eval_avg_metrics["accuracy"] )
+                                                                        eval_avg_metrics["accuracy"],
+                                                                        self.context.best_metric)
 
             self.logger.info(final_text)
 
@@ -178,18 +184,16 @@ class Trainer(BaseTrainer):
                         print("Max iter reached")
                         break
                 
-                train_loss,train_avg_metrics = self.train_batch(images,target)
+                preds,train_loss,train_avg_metrics = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
+                if self.custom_callbacks is not None: 
+                    self.execute_custom_callback(callbacks.TRAIN_BATCH_END,images=images,target=target,preds=preds,
+                                                 epoch=self.epoch,batch=batch,step="Train")
 
                 dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
-    def train_batch(self,images,target):
-
-        images,target = images.to(self.device),target.to(self.device)
-        preds = self.model(images)
-        train_loss,_,train_avg_metrics = self.context(callbacks.TRAIN_BATCH_END,
-                                                        preds = preds, target = target)
-        
-        return train_loss,train_avg_metrics
+            if self.custom_callbacks is not None: 
+                self.execute_custom_callback(callbacks.TRAIN_EPOCH_END,images=images,target=target,preds=preds,
+                                             epoch=self.epoch,batch=None,step="Train")
 
     def evaluate_epoch(self,dataloader:tqdm,save_image=False):
         
@@ -199,13 +203,29 @@ class Trainer(BaseTrainer):
             with torch.cuda.amp.autocast(enabled=self.autocast):
                 for batch,(images,target) in enumerate(dataloader):
 
-                    images,target = images.to(self.device),target.to(self.device)
+                    preds,val_loss,val_avg_metrics = self.execute_batch(callbacks.EVAL_BATCH_END,images,target)
+                    if self.custom_callbacks is not None: 
+                        self.execute_custom_callback(callbacks.EVAL_BATCH_END,images=images,target=target.clone(),preds=preds,
+                                                     epoch=self.epoch,batch=batch,step="Eval")
 
-                    preds = self.model(images)
+                if self.custom_callbacks is not None: 
+                    self.execute_custom_callback(callbacks.EVAL_EPOCH_END,images=images,target=target,preds=preds,
+                                                 epoch=self.epoch,batch=None,step="Eval")
+                # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
-                    self.context(callbacks.EVAL_BATCH_END,preds = preds, target = target)
+    def execute_batch(self,callback,images,target):
 
-                    # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
+        images,target = images.to(self.device),target.to(self.device)
+        preds = self.model(images)
+        loss,_,avg_metrics = self.context(callback,preds = preds, target = target)
+         
+        return preds,loss,avg_metrics
+    
+    def execute_custom_callback(self,callback_type,**kargs):
+        if callback_type in self.custom_callbacks:
+            for callb in self.custom_callbacks[callback_type]:
+                callb(**kargs)
+
 
     def _load_checkpoint(self,checkpoint):
         return self.context._load_checkpoint(checkpoint)

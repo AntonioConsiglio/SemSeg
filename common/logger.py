@@ -5,7 +5,8 @@ from datetime import datetime
 import cv2
 import numpy as np
 import yaml
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+import torchvision
+#os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -80,7 +81,10 @@ class TrainLogger():
             for k,value in metric.items():
                 self.tb_writer.add_scalar(f"{step}/{k}",value,global_step=epoch)
 
-    
+    def write_images(self,grid:list,description,step):
+        predgrid = torchvision.utils.make_grid(grid,nrow=3)
+        self.tb_writer.add_images(description,predgrid,global_step = step,dataformats="CHW")
+        
     def save_images(self,img,pred,gt,epoch,batch):
 
         path_name = os.path.join(self.log_dir,"saved",f"epoch{epoch}")
