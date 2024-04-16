@@ -51,6 +51,27 @@ PASCALVOC_TRANSFORM = A.Compose([
     # A.GridDistortion(),
 ])
 
+class AUGSBDVocDataloader(DataLoader):
+    def __init__(self,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
+                 pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
+        
+        dataset = SBD(root=SBD_ROOT,
+                        train=True,
+                        transform = transform,
+                        train_filename="aug_pascalvoc_train.txt",
+                        mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68 / 255, 116.799 / 255, 103.949 / 255 ), #VGG16_Weights.IMAGENET1K
+                        std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255,1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
+                        caffe_pretrained=caffe_pretrained)
+        
+        print(len(dataset))
+
+        super().__init__(dataset=dataset,
+                         batch_size=batch_size,
+                         num_workers=num_workers,
+                         pin_memory=pin_memory,
+                         shuffle=True,
+                         drop_last=True)
+
 class SBDDataloader(DataLoader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
@@ -66,7 +87,8 @@ class SBDDataloader(DataLoader):
                          batch_size=batch_size,
                          num_workers=num_workers,
                          pin_memory=pin_memory,
-                         shuffle=train)
+                         shuffle=train,
+                         drop_last=True)
     
         
 class PascalDataloader(DataLoader):
@@ -153,19 +175,8 @@ class PascalVocDataset(BaseDataset):
         self.masks_root = join(root,"masks")
         self.caffe_pretrained = caffe_pretrained
         self.augmenter = transform
-        
-        if train:
-            with open(join(self.root,"train.txt"),"r") as f:
-                image_list = f.read().splitlines()
-        else:
-            with open(join(self.root,"seg11valid.txt"),"r") as f:
-                image_list = f.read().splitlines()
+        self.dataset = self.load_dataset(train) 
 
-        self.dataset = [{"img":join(self.images_root,i+".jpg"),
-                         "mask":join(self.masks_root,i+".png")} 
-                         for i in image_list]
-
-       
         self.mean = mean
         self.std = std
 
@@ -174,7 +185,19 @@ class PascalVocDataset(BaseDataset):
         self.normilizer = A.Normalize(mean = self.mean,std = self.std,
                                       max_pixel_value= 1 if not self.caffe_pretrained else 255.0 )
 
-        
+    def load_dataset(self,train):
+
+        if train:
+            with open(join(self.root,"train.txt"),"r") as f:
+                image_list = f.read().splitlines()
+        else:
+            with open(join(self.root,"seg11valid.txt"),"r") as f:
+                image_list = f.read().splitlines()
+
+        return [{"img":join(self.images_root,i+".jpg"),
+                "mask":join(self.masks_root,i+".png")} 
+                for i in image_list]
+
         
     def __getitem__(self,idx):
 
@@ -257,10 +280,29 @@ class SBD(PascalVocDataset):
     url = 'http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/semantic_contours/benchmark.tgz' 
 
     def __init__(self,root:Optional[str] = None, train:bool = True, 
-                 transform:A.Compose = None,
+                 transform:A.Compose = None,train_filename:str = None,
                  mean = None, std = None,caffe_pretrained=False) -> Dataset:
         
+        self.train_filename = train_filename
         super().__init__(root,train,transform,mean,std,caffe_pretrained)
+    
+    def load_dataset(self,train):
+
+        if train:
+            if self.train_filename is None:
+                with open(join(self.root,"train.txt"),"r") as f:
+                    image_list = f.read().splitlines()
+            else:
+                with open(join(self.root,self.train_filename),"r") as f:
+                    image_list = f.read().splitlines()
+        else:
+            with open(join(self.root,"seg11valid.txt"),"r") as f:
+                image_list = f.read().splitlines()
+
+        return [{"img":join(self.images_root,i+".jpg"),
+                "mask":join(self.masks_root,i+".png")} 
+                for i in image_list]
+
     
     def _get_transform(self,sample):
 
@@ -285,3 +327,26 @@ class SBD(PascalVocDataset):
 
         return image,mask
 
+
+class ConcatDataset(BaseDataset):
+    def __init__(self, *datasets):
+        self.datasets = []
+        self.create_datasets(datasets)
+
+    def create_datasets(self, datasets):
+        self.datasets = []
+        start_index = 0
+        for dataset in datasets:
+            end_index = start_index + len(dataset) - 1
+            self.datasets.append({"start_index": start_index, "end_index": end_index, "data": dataset})
+            start_index = end_index + 1
+
+    def __getitem__(self, i):
+        for dataset in self.datasets:
+            start_index = dataset["start_index"]
+            end_index = dataset["end_index"]
+            if (i >= start_index) and (i <= end_index):
+                return dataset["data"][i - start_index]
+
+    def __len__(self):
+        return sum([len(d["data"]) for d in self.datasets])
