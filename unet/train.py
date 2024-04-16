@@ -6,18 +6,21 @@ import argparse
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 from unet.trainer import TrainerUNET
 from common import TrainLogger,PascalDataloader,SBDDataloader,set_all_seeds
+from common.callbacks import callbacks,VisualizeSegmPredCallback
 import albumentations as A
 import cv2 
 
+from torchvision.models.segmentation import deeplabv3_resnet101
 from unet.model import UNET
 import yaml
 
 TRAIN_TRANSFORM = A.Compose([
     #A.Resize(512,512),
     A.HorizontalFlip(),
-    #A.VerticalFlip(),
+    A.VerticalFlip(),
     A.RandomBrightnessContrast(),
-    A.Rotate((-20,20),border_mode=cv2.BORDER_CONSTANT),
+    A.RandomScale([-0.5,1],always_apply=True),
+    #A.Rotate((-20,20),border_mode=cv2.BORDER_CONSTANT),
     A.PadIfNeeded(min_height=320,min_width=320,border_mode=cv2.BORDER_CONSTANT),
     A.RandomCrop(320,320),
     #A.ColorJitter(),
@@ -41,8 +44,9 @@ if __name__ == "__main__":
         # Load the YAML content
         cfg = yaml.safe_load(file)
     
+    DEVICE = cfg.get("device",None)
+    N_CLASSES = cfg.get("n_classes",21)
     train_cfg = cfg["training"]
-    N_CLASSES = train_cfg.get("n_classes",21)
     BATCH_SIZE = train_cfg.get("batch_size",4)
     NUM_WORK = train_cfg.get("num_worker",2)
     PIN_MEMORY = train_cfg.get("pin_memory",True)
@@ -52,8 +56,9 @@ if __name__ == "__main__":
 
     # Create training logger
     logger = TrainLogger("UNET",exp_name=args.exp_name)
-    # Create FCN model
-    model = UNET(in_channels=3,n_class=N_CLASSES,pretrained=True,dropout=0.5,norm=True,convtranspose=False)
+    # Create UNET model
+    model = UNET(in_channels=3,n_class=N_CLASSES,pretrained=True,dropout=0.2,norm=False,convtranspose=False)
+
     # Load train and validation dataloader
     train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,transform=TRAIN_TRANSFORM,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
@@ -68,8 +73,21 @@ if __name__ == "__main__":
         for k,_ in train_cfg["lr_scheduler"].items():
             train_cfg["lr_scheduler"][k]["total_iters"] *= len(train_dataloader)
 
+        #custom callbacks
+    custom_callbacks = {callbacks.TRAIN_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
+                                                                            dataset = eval_dataloader.dataset,
+                                                                            exec_batch_frequence=10,
+                                                                            exec_step_frequence=100,
+                                                                            num_images=9)],
+                        callbacks.EVAL_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
+                                                                            dataset = eval_dataloader.dataset,
+                                                                            exec_batch_frequence=3,
+                                                                            exec_step_frequence=10,
+                                                                            num_images=9)]}
+    
     # Create Trainer instance
-    trainer = TrainerUNET(model=model,logger=logger,cfg=cfg)
+    trainer = TrainerUNET(model=model,logger=logger,cfg=cfg,device=DEVICE,
+                          custom_callbacks=custom_callbacks)
 
     if train_cfg.get("find_best_lr",False):
         trainer.find_best_lr(train_dataloader)

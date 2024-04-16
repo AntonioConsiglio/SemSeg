@@ -38,19 +38,23 @@ img credits: https://arxiv.org/pdf/1505.04597.pdf
         - Batch size: 32
         - Images not resized, random crop of 320x320 (Padding is used for image with shorter dimensions) 
         - Loss is averaged due to the fact that we have same shape during training
-        - SGD optimizer with:
-            - Momentum: 0.9 
-            - Weight decay: 5e-04
-        - PolyDecay policy for learning rate with:
-            - starting lr: 1e-02
-            - power: 0.9
+        - Adam optimizer with:
+            - Weight decay : 5e-04
+            - lr : 1e-04 (epochs < 260)
+            - lr : 5e-05 (epochs > 260)
+        <!-- - Momentum : 0.9  -->
+        <!-- - PolyDecay policy for learning rate with: -->    
+        <!-- - power: 0.9 -->
 
 - **Augmentation:**
     - Light Augmentation was used during training:
         ```python
-        A.HorizontalFlip()
-        A.RandomBrightnessContrast()
-        A.Rotate((-20,20),border_mode=cv2.BORDER_CONSTANT)
+        A.HorizontalFlip(),
+        A.VerticalFlip(),
+        A.RandomBrightnessContrast(),
+        A.RandomScale([-0.5,1],always_apply=True),
+        A.PadIfNeeded(min_height=320,min_width=320,border_mode=cv2.BORDER_CONSTANT),
+        A.RandomCrop(320,320),
         ```
          
 ## Results
@@ -58,7 +62,8 @@ img credits: https://arxiv.org/pdf/1505.04597.pdf
 |**Model**|**Ref**|**Pretrained**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|---|
 |**U-NET**| Paper | - | - | - | - | - | [-]|
-|**U-NET**| mine | ImageNet (Not completed) | - | - | - | - |[[weights]()]|
+|**U-NET**| mine | ImageNet (Not completed) | 271 | - | 46.4 | 90.9 |[[weights]()]|
+|**U-NET**| mine | ImageNet 1K | - | - | - | - |[[weights]()]|
 
 ## Note:
 - 

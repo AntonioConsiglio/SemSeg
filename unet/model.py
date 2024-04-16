@@ -22,6 +22,10 @@ class UNET(nn.Module):
         # down_layers_cfg = [64, "S", "M", 128,"D","S", "M", 256, "D","S", "M", 512, "S", "M", 1024,"D","S"]
         down_layers_cfg = [64, "S", "M", 128,"S", "M", 256, "S", "M", 512, "S", "M", 1024,"D","S"]
         up_layers_cfg = [512,256, 128,64]
+
+        droplayer = 0
+        if isinstance(dropout,list):
+            dropout,droplayer = dropout # To manage how many output layer will have dropout
         
         self.in_ch = in_channels
         self.n_class = n_class
@@ -52,16 +56,16 @@ class UNET(nn.Module):
             self.class_head = L.BaseClassificationHead(in_channel=1024,
                                                        out_channel=n_class)
         else:
-            for k in up_layers_cfg:
+            for n,k in enumerate(up_layers_cfg,start=1):
                 up_layers.append(L.DoubleUpConv(in_channels=k*2,out_channels=k,
-                                            kernel_size=3,padding=1,norm=norm,dropout=dropout,
+                                            kernel_size=3,padding=1,norm=norm,dropout=dropout if n > droplayer else 0.0,
                                             activation=activation,convtranspose=convtranspose))
             
             self.up_layers = up_layers
 
             self.conv_head = nn.Conv2d(up_layers_cfg[-1],n_class,kernel_size=1,padding=0)
         
-        self.dropout = nn.Dropout2d(dropout) if not classification else nn.Dropout(dropout)
+        #self.dropout = nn.Dropout2d(dropout) if not classification else nn.Dropout(dropout)
 
         self._init_weights([self],pretrained)
     
@@ -80,7 +84,7 @@ class UNET(nn.Module):
         for n,layer in enumerate(self.up_layers,start=1):
             x = layer(x,skip[-n])
 
-        x = self.dropout(x)
+        #x = self.dropout(x)
         
         return self.conv_head(x)
 
@@ -92,9 +96,9 @@ class UNET(nn.Module):
 
 
         group_params = [{"params": get_params(self,bias=False,kfilter=uplayers,)},
-                        {"params": get_params(self,bias=False,kfilter=downlayers),"lr":lr * 1},
-                        {"params": get_params(self,bias=True,kfilter=uplayers),"lr":lr * 1 ,"weight_decay":0},
-                        {"params": get_params(self,bias=True,kfilter=downlayers),"lr":lr * 1,"weight_decay":0}]
+                        {"params": get_params(self,bias=False,kfilter=downlayers),"lr":lr * 0.1},
+                        {"params": get_params(self,bias=True,kfilter=uplayers),"lr":lr * 2 ,"weight_decay":0},
+                        {"params": get_params(self,bias=True,kfilter=downlayers),"lr":lr * 0.2,"weight_decay":0}]
         
         return group_params
         
