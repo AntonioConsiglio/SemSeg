@@ -37,13 +37,17 @@ class callbacks:
     EVAL_EPOCH_END = "eval_epoch_end"
     #epoch
     EPOCH_END = "epoch_end"
+    # TEST
+    TEST_BATCH_END = "test_batch_end"
+    TEST_EPOCH_END = "test_epoch_end"
 
 class VisualizeSegmPredCallback:
     def __init__(self,
                  logger,
                  n_class,
                  dataset,
-                 exec_frequence=10,
+                 exec_batch_frequence=10,
+                 exec_step_frequence=None,
                  num_images = 4,):
         
         self.logger = logger
@@ -53,7 +57,9 @@ class VisualizeSegmPredCallback:
         self.store_dataset_mean_and_std()
 
         self.color_map:dict = self.dataset.get_color_map()
-        self.exec_frequence = exec_frequence
+        self.exec_batch_frequence = exec_batch_frequence
+        self.exec_step_frequence = (exec_step_frequence if exec_step_frequence 
+                                    is not None else exec_batch_frequence)
 
         if self.color_map is None: 
             self.color_map = {}
@@ -133,9 +139,23 @@ class VisualizeSegmPredCallback:
         return images
         
     def create_grid(self,images,target,preds):
-        denorm_images = self.denorm_images(images[:self.num_images,...])
-        rgb_targets = self.class_index_to_rgb(target[:self.num_images,...]).permute((0,3,1,2))
-        rgb_preds = self.class_index_to_rgb(torch.argmax(preds[0],dim=1)[:self.num_images,...]).permute((0,3,1,2))
+        if isinstance(preds,list):
+            preds = preds[0]
+        
+        if len(images) > self.num_images:
+            array = []
+            while len(array) < self.num_images:
+                idx = random.randrange(0,len(images))
+                if idx not in array:
+                    array.append(idx)
+            array.sort()
+            denorm_images = self.denorm_images(images[array,...])
+            rgb_targets = self.class_index_to_rgb(target[array,...]).permute((0,3,1,2))
+            rgb_preds = self.class_index_to_rgb(torch.argmax(preds,dim=1)[array,...]).permute((0,3,1,2))
+        else:
+            denorm_images = self.denorm_images(images[:self.num_images,...])
+            rgb_targets = self.class_index_to_rgb(target[:self.num_images,...]).permute((0,3,1,2))
+            rgb_preds = self.class_index_to_rgb(torch.argmax(preds,dim=1)[:self.num_images,...]).permute((0,3,1,2))
         grid = []
         for t,i,p in zip(rgb_targets,denorm_images,rgb_preds):
             grid.append(t)
@@ -150,11 +170,17 @@ class VisualizeSegmPredCallback:
         stage = kwargs.get("stage","Train")
 
         #Save batch:
-        if batch is not None and batch % self.exec_frequence == 0:
+        if (batch is not None and 
+            batch % self.exec_batch_frequence == 0 and 
+            epoch % self.exec_step_frequence == 0):
+
             self.logger.write_images(grid = self.create_grid(images,target,preds),
                                      description = f"{stage}_Batch{str(batch).zfill(3)}",
                                      step = epoch)
-        elif epoch is not None and batch is None and epoch % self.exec_frequence == 0:
+            
+        elif (epoch is not None and batch is None and 
+              epoch % self.exec_step_frequence == 0):
+            
             self.logger.write_images(grid = self.create_grid(images,target,preds),
                                      description = f"{stage}_aFinal_Epoch_Batch",
                                      step = epoch)
@@ -271,9 +297,18 @@ class ContextManager():
         
         elif callback == "eval_epoch_end":
             return self._eval_epoch_call(**kargs)
+        
+        elif callback == "test_batch_end":
+            return self._eval_batch_call(test=True,**kargs)
+        
+        elif callback == "test_epoch_end":
+            return self._eval_epoch_call(test=True,**kargs)
 
         elif callback == "epoch_end":
             return self._save_checkpoint(**kargs)
+        
+        
+
 
 
     def _train_batch_call(self,**kargs):
@@ -335,12 +370,13 @@ class ContextManager():
         return epoch_loss,epoch_metrics,epoch_avg_metrics
  
 
-    def _eval_batch_call(self,**kargs):
+    def _eval_batch_call(self,test=False,**kargs):
 
         pred, target = kargs["preds"],kargs["target"]
-        loss = self._calculate_loss(pred,target)
-        with torch.no_grad():
-            self.eval_loss_collection.append(torch.mean(loss).item())
+        if not test:
+            loss = self._calculate_loss(pred,target)
+            with torch.no_grad():
+                self.eval_loss_collection.append(torch.mean(loss).item())
 
         self._update_metrics(self.eval_metrics,pred,target)
 
@@ -352,9 +388,11 @@ class ContextManager():
         return None,None,None
 
 
-    def _eval_epoch_call(self):
+    def _eval_epoch_call(self,test=False):
         
-        epoch_loss = self._get_average(self.eval_loss_collection,loss=True)
+        epoch_loss = None
+        if not test:
+            epoch_loss = self._get_average(self.eval_loss_collection,loss=True)
         epoch_metrics = self._get_metrics_dict(self.eval_metrics,True)
         epoch_avg_metrics = self._get_average(epoch_metrics)
 

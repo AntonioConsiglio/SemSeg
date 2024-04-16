@@ -86,7 +86,7 @@ class Trainer(BaseTrainer):
               freeze_backbone=False) -> None:
         
         epochs = self.cfg.pop("epochs",10)
-        start_epoch = 1
+        start_epoch = 0
         # model to device - cuda if exist
         self.model.to(self.device)
 
@@ -106,7 +106,7 @@ class Trainer(BaseTrainer):
             self.epoch = epoch
             # Train step
             train_loop = tqdm(train_loader,desc=f"Train epoch {epoch}: ",bar_format="{l_bar}{bar:40}{r_bar}")
-            self.train_epoch(train_loop,epoch-1)
+            self.train_epoch(train_loop,epoch)
             train_loss,train_metrics,train_avg_metrics = self.context(callbacks.TRAIN_EPOCH_END)
             
             if not "iou" in train_avg_metrics:
@@ -187,13 +187,13 @@ class Trainer(BaseTrainer):
                 preds,train_loss,train_avg_metrics = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
                 if self.custom_callbacks is not None: 
                     self.execute_custom_callback(callbacks.TRAIN_BATCH_END,images=images,target=target,preds=preds,
-                                                 epoch=self.epoch,batch=batch,step="Train")
+                                                 epoch=self.epoch,batch=batch,stage="Train")
 
                 dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
             if self.custom_callbacks is not None: 
                 self.execute_custom_callback(callbacks.TRAIN_EPOCH_END,images=images,target=target,preds=preds,
-                                             epoch=self.epoch,batch=None,step="Train")
+                                             epoch=self.epoch,batch=None,stage="Train")
 
     def evaluate_epoch(self,dataloader:tqdm,save_image=False):
         
@@ -206,17 +206,19 @@ class Trainer(BaseTrainer):
                     preds,val_loss,val_avg_metrics = self.execute_batch(callbacks.EVAL_BATCH_END,images,target)
                     if self.custom_callbacks is not None: 
                         self.execute_custom_callback(callbacks.EVAL_BATCH_END,images=images,target=target.clone(),preds=preds,
-                                                     epoch=self.epoch,batch=batch,step="Eval")
+                                                     epoch=self.epoch,batch=batch,stage="Eval")
 
                 if self.custom_callbacks is not None: 
                     self.execute_custom_callback(callbacks.EVAL_EPOCH_END,images=images,target=target,preds=preds,
-                                                 epoch=self.epoch,batch=None,step="Eval")
+                                                 epoch=self.epoch,batch=None,stage="Eval")
                 # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
     def execute_batch(self,callback,images,target):
 
         images,target = images.to(self.device),target.to(self.device)
         preds = self.model(images)
+        if isinstance(preds,dict):
+            preds = preds["out"]
         loss,_,avg_metrics = self.context(callback,preds = preds, target = target)
          
         return preds,loss,avg_metrics
@@ -263,7 +265,7 @@ class Trainer(BaseTrainer):
         with torch.cuda.amp.autocast(enabled=self.autocast):
             for batch,(images,target) in enumerate(loop):
                 
-                train_loss,_ = self.train_batch(images,target)
+                _,train_loss,_ = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
                 curr_lr = self.context.get_lr()
                 loop.set_postfix(loss=f"{train_loss:.2f}",lr=curr_lr)
 
@@ -281,7 +283,7 @@ class Trainer(BaseTrainer):
         plt.xlabel('LR (log10)')
         plt.ylabel('Batch Loss')
         plt.ylim(top=10,bottom=0)
-        plt.title('Plot of Data')
+        plt.title('LR Finding Plot')
         plt.xscale("log")
         plt.grid(True)
         plt.savefig("plot_image.png")
