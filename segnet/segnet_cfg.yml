@@ -1,0 +1,49 @@
+
+task: "segmentation"
+epochs: 800
+checkpoint_step: 50
+validate_after: 1
+autocast: False
+n_classes: 21
+device: "cuda"
+eval_checkpoint: /projects/SemSeg/logs/SegNet/20240416_153353_FirstSegNetSGD_RestartMoreData/checkpoints/best.pt 
+#eval_weights: 
+
+training:
+
+  find_best_lr: False
+  batch_acc: 1
+  batch_size: 32
+  num_worker: 8
+  pin_memory: True
+  forward_hooks: False
+  #checkpoint: /projects/SemSeg/logs/SegNet/20240416_112601_FirstSegNetSGD/checkpoints/last.pt
+  caffe_pretrained: False
+  max_iter: null #max total batch iteration
+
+  loss_function:
+    ce: null
+    params:
+      reduction: "mean"
+      ignore_index: 21
+      generalized_metric: true
+      number_of_classes: 21
+
+  optim:
+    SGD:
+      momentum: 0.9
+      weight_decay: 0.0005
+      lr: 5.0e-3
+
+#     Adam:
+#       weight_decay: 0.0005
+#       lr: 5.0e-3
+
+  # lr_scheduler:
+  #   PolynomialLR: 
+  #     total_iters: 1600
+  #     power: 0.9
+
+      
+
+
