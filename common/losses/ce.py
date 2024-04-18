@@ -24,8 +24,8 @@ class CELoss(Module):
                  generalized_metric = False,
                  number_of_classes = None):
         super().__init__()
-        if generalized_metric:
-            self.generalized_metric = generalized_metric
+        self.generalized_metric = generalized_metric
+        if self.generalized_metric: 
             self.ignore_index = ignore_index
             assert number_of_classes is not None , "Number of classes needed if generalized_metric is True!"
             self.number_of_classes = number_of_classes
