@@ -19,7 +19,7 @@ Below is a list of architectures that will be implemented. Each architecture is 
 - [ ] [GCN](https://arxiv.org/abs/1703.02719) (2017)
 - [ ] [DeepLabV3+](https://arxiv.org/pdf/1802.02611.pdf) (2018)
 - [ ] [Gated-SCNN](https://arxiv.org/pdf/1907.05740.pdf) (2019)
-- [ ] [BiSeNetV2](https://arxiv.org/pdf/2004.02147.pdf) (2020)
+- [x] [BiSeNetV2](https://github.com/AntonioConsiglio/SemSeg/tree/main/bisenetv2) (2020)
 - [ ] [STDC-Seg](https://arxiv.org/pdf/2104.13188.pdf) (2021)
 - [ ] [SegFormer](https://arxiv.org/pdf/2104.13188.pdf) (2021)
 - [ ] [PPLiteSeg](https://arxiv.org/pdf/2204.02681.pdf) (2022)

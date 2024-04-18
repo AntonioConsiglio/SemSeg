@@ -1,19 +1,19 @@
-# RTFormer (2022) 
-Link to the paper -> [Link](https://arxiv.org/pdf/2210.07124.pdf) 
+# BiSeNetV2 (2020) 
+Link to the paper -> [Link](https://arxiv.org/pdf/2004.02147.pdf) 
 
 ## Features
 
 - End to end trainable
 - Real-time semantic segmentation
-- GPU Friendly Attention GFA  [ GFA(X, Kg, Vg) = GDN(X · KTg) · Vg]
-- Cross-resolution Attention
-- FFN (Feed Forward Network) in RTFormer block made by two 3x3 convolutional layers only
+- ...
+- ...
+- ...
 
 ## Architecture
 
 ![Alt text](image.png)
 
-img credits: https://arxiv.org/pdf/2210.07124.pdf
+img credits: https://arxiv.org/pdf/2004.02147.pdf
 
 ## Training
 
@@ -51,5 +51,5 @@ img credits: https://arxiv.org/pdf/2210.07124.pdf
 
 |**Model**|**Ref**|**Pretrained**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|---|
-|**RTFormer-Slim**| mine | ImageNet | - | - | - | - | [[weights]()]|
-|**RTFormer-Base**| mine | ImageNet | - | - | 69.8 | 92.5 |[[weights]()]|
+|**BiSeNetV2**| paper | ImageNet | - | - | - | - | [[weights]()]|
+|**BiSeNetV2**| mine | ImageNet | - | - | - | - |[[weights]()]|

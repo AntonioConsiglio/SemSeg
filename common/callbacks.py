@@ -173,14 +173,16 @@ class VisualizeSegmPredCallback:
         if (batch is not None and 
             batch % self.exec_batch_frequence == 0 and 
             epoch % self.exec_step_frequence == 0):
-
+            if isinstance(preds,(list,tuple)):
+                preds = preds[0]
             self.logger.write_images(grid = self.create_grid(images,target,preds),
                                      description = f"{stage}_Batch{str(batch).zfill(3)}",
                                      step = epoch)
             
         elif (epoch is not None and batch is None and 
               epoch % self.exec_step_frequence == 0):
-            
+            if isinstance(preds,(list,tuple)):
+                preds = preds[0]
             self.logger.write_images(grid = self.create_grid(images,target,preds),
                                      description = f"{stage}_aFinal_Epoch_Batch",
                                      step = epoch)

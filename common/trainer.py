@@ -283,7 +283,7 @@ class Trainer(BaseTrainer):
         plt.plot(lrs, losses, 'b-x')  # 'bo' means blue color and circle markers
         plt.xlabel('LR (log10)')
         plt.ylabel('Batch Loss')
-        plt.ylim(top=10,bottom=0)
+        plt.ylim(top=25,bottom=0)
         plt.title('LR Finding Plot')
         plt.xscale("log")
         plt.grid(True)
