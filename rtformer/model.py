@@ -182,6 +182,7 @@ class RTFormer(nn.Module):
         x_out = self.seghead(torch.cat([x5_, x6], axis=1))  # 4c, 1/8
         logit_list = [x_out]
 
+
         if self.use_aux_heads:
             x_out_extra = self.seghead_extra(x3_)
             logit_list.append(x_out_extra)
@@ -194,6 +195,8 @@ class RTFormer(nn.Module):
                 align_corners=False) for logit in logit_list
         ]
 
+        if not self.training:
+            return logit_list[0]
         return logit_list
 
 

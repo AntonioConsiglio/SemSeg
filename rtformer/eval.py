@@ -10,7 +10,7 @@ from common.callbacks import callbacks,VisualizeSegmPredCallback
 from rtformer.model import RTFormerBase
 import yaml
 
-with open(os.path.join("segnet","segnet_cfg.yml"), 'r') as file:
+with open(os.path.join("rtformer","rtformer_cfg.yml"), 'r') as file:
     # Load the YAML content
     cfg = yaml.safe_load(file)
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     EVAL_WEIGHTS = cfg.get("eval_weights",None)
     CAFFE_PRETRAINED = train_cfg.get("caffe_pretrained",False)
 
-    logger = TrainLogger("SegNet",exp_name="Evaluation")
+    logger = TrainLogger("RTFormer",exp_name="Evaluation")
     #model = UNET(in_channels=3,out_channels=N_CLASSES)
     model = RTFormerBase(in_channels=3,n_class=N_CLASSES,use_aux_heads=True if CHECKPOINT is not None else False)
 

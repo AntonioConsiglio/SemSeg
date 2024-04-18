@@ -5,7 +5,7 @@ sys.path.append(os.path.join(Path(__file__).parent.parent))
 import argparse
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 from rtformer.trainer import TrainerRTFormer
-from common import TrainLogger,PascalDataloader,SBDDataloader,set_all_seeds
+from common import TrainLogger,PascalDataloader,SBDDataloader,AUGSBDVocDataloader,set_all_seeds
 from common.callbacks import callbacks,VisualizeSegmPredCallback
 import albumentations as A
 import cv2 
@@ -22,13 +22,9 @@ TRAIN_TRANSFORM = A.Compose([
     A.VerticalFlip(),
     A.RandomBrightnessContrast(),
     A.RandomScale([-0.5,1],always_apply=True),
-    #A.VerticalFlip(),
-    A.RandomBrightnessContrast(),
-    A.Rotate((-30,30),border_mode=cv2.BORDER_CONSTANT),
+    # A.Rotate((-30,30),border_mode=cv2.BORDER_CONSTANT),
     A.PadIfNeeded(min_height=IMG_SHAPE,min_width=IMG_SHAPE,border_mode=cv2.BORDER_CONSTANT),
     A.RandomCrop(IMG_SHAPE,IMG_SHAPE),
-    #A.ColorJitter(),
-    # A.GridDistortion(),
 ])
 
 EVAL_TRANSFORM = A.Compose([
@@ -63,7 +59,7 @@ if __name__ == "__main__":
     # Create FCN model
     model = RTFormerBase(in_channels=3,n_class=N_CLASSES,use_aux_heads=True)
     # Load train and validation dataloader
-    train_dataloader = SBDDataloader(train=True,batch_size=BATCH_SIZE,transform=TRAIN_TRANSFORM,
+    train_dataloader = AUGSBDVocDataloader(batch_size=BATCH_SIZE,transform=TRAIN_TRANSFORM,
                                         num_workers=NUM_WORK,pin_memory=PIN_MEMORY,
                                         caffe_pretrained=CAFFE_PRETRAINED)
     
@@ -76,14 +72,20 @@ if __name__ == "__main__":
         for k,_ in train_cfg["lr_scheduler"].items():
             train_cfg["lr_scheduler"][k]["total_iters"] *= len(train_dataloader)
 
-    #custom callbacks
-    custom_callbacks = {callbacks.EVAL_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
+    custom_callbacks = {callbacks.TRAIN_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
                                                                             dataset = eval_dataloader.dataset,
-                                                                            exec_frequence=3,num_images=6)]}
-
+                                                                            exec_batch_frequence=20,
+                                                                            exec_step_frequence=100,
+                                                                            num_images=9)],
+                        callbacks.EVAL_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
+                                                                            dataset = eval_dataloader.dataset,
+                                                                            exec_batch_frequence=3,
+                                                                            exec_step_frequence=10,
+                                                                            num_images=9)]}
+    
     # Create Trainer instance
     trainer = TrainerRTFormer(model=model,logger=logger,cfg=cfg,device=DEVICE,
-                              custom_callbacks = custom_callbacks)
+                              custom_callbacks=custom_callbacks)
 
     if train_cfg.get("find_best_lr",False):
         trainer.find_best_lr(train_dataloader)
