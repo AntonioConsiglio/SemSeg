@@ -169,3 +169,6 @@ logs/*
 
 datasets.zip
 .vscode/
+*.pt
+*.onnx
+*.tar

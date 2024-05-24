@@ -678,7 +678,7 @@ class RTFormerSlim(RTFormer):
 
 class RTFormerBase(RTFormer):
    
-    def __init__(self,in_channels=3,n_class=21,use_aux_heads=True ):
+    def __init__(self,in_channels=3,n_class=21,use_aux_heads=True):
         
         super().__init__(
                 num_classes = n_class,
@@ -703,7 +703,64 @@ class RTFormerBase(RTFormer):
                 statedict[k] = v
         
         self.load_state_dict(statedict)
+    
+    def load_checkpoint(self,checkpoint):
+
+        if isinstance(checkpoint,str):
+            checkpoint = torch.load(checkpoint,map_location="cpu")
+            
+        if "model" in checkpoint:
+            checkpoint = checkpoint["model"]
         
+        if not self.use_aux_heads:
+            pretrained_weights = {k:v for (k,v) in checkpoint.items() if not "extra" in k}
+        else:
+            pretrained_weights = checkpoint
+
+        current_statedict = self.state_dict()
+
+        not_matched = []
+        for k,v in pretrained_weights.items():
+            if k in current_statedict:
+                current_statedict[k] = v
+            else: not_matched.append(k)
+        
+        if len(not_matched) > 0:
+            print(f"This key where not matched: {not_matched}")
+        
+        self.load_state_dict(current_statedict)
+
+        print("[INITIALIZATION MESSAGE] : CHEKPOINT LOADED!")
+        
+    def prepare_for_export(self,input_size):
+        '''
+            Fix the adaptive average pooling module in DAPPM block
+            and Adaptive max pooling in ExternalAttention 
+        '''
+        down_scale = 32
+        block_input_size = None
+        ea_block = None
+        dappm_module = None
+        for name,module in self.named_modules():
+            if isinstance(module,EABlock):
+                ea_block = module
+                block_input_size = [x / down_scale for x in input_size[-2:]]
+            elif isinstance(module,nn.AdaptiveMaxPool2d):
+                out_size =  module.output_size
+                out_size = out_size if isinstance(out_size, (tuple, list)) else (out_size, out_size)
+                # calculus to have the correct size:
+                # final_shape >= 1 + (init_shape-k_size)/stride
+                stride = tuple([int(i / o) for i, o in zip(block_input_size, out_size)])
+                kernel_size = [int(i - (o-1)*s) for i,o,s in zip(block_input_size, out_size,stride)]
+                setattr(ea_block.cross_kv,"1",nn.AvgPool2d(kernel_size,stride)) #MaxPool to AvgPool
+                #setattr(ea_block.cross_kv,"1",nn.MaxPool2d(kernel_size,(stride,stride),return_indices=True))
+            elif isinstance(module,DAPPM):
+                dappm_module = module
+            elif isinstance(module,nn.AdaptiveAvgPool2d):
+                out_size = module.output_size
+                out_size = out_size if isinstance(out_size, (tuple, list)) else (out_size, out_size)
+                kernel_size = stride = [int(i / o) for i, o in zip(block_input_size, out_size)]
+                setattr(dappm_module.scale4,"0",nn.AvgPool2d(kernel_size,stride))
 
 
 if __name__ == "__main__":
