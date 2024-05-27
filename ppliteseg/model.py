@@ -35,19 +35,20 @@ class PPLiteSegBase(nn.Module):
         resize_mode (str, optional): The resize mode for the upsampling operation in decoder.
             Default: bilinear.
         pretrained (str, optional): The path or url of pretrained model. Default: None.
+        use_aux_heads (bool): Use or not use auxiliar heads (there are three aux heads while training)
 
     """
 
     def __init__(self,
                  num_classes,
-                 backbone = None,
-                 arm_type='UAFM_SpAtten',
-                 cm_bin_sizes=[1, 2, 4],
-                 cm_out_ch=128,
-                 arm_out_chs=[64, 96, 128],
-                 seg_head_inter_chs=[64, 64, 64],
-                 resize_mode='bilinear',
-                 use_aux_heads=False):
+                 backbone:nn.Module = None,
+                 arm_type:str='UAFM_SpAtten',
+                 cm_bin_sizes:list[int]=[1, 2, 4],
+                 cm_out_ch:int=128,
+                 arm_out_chs:list[int]=[64, 96, 128],
+                 seg_head_inter_chs:list[int]=[64, 64, 64],
+                 resize_mode:str='bilinear',
+                 use_aux_heads:bool=False):
         super().__init__()
 
         assert backbone is not None, "Backbone not selected! Please give the backbone Instance as argument!"
@@ -66,7 +67,7 @@ class PPLiteSegBase(nn.Module):
         self.init_weight()
 
     def forward(self, x):
-        #x = x[:,:,8:712,:]
+
         x_hw = x.shape[2:]
 
         feats_backbone = self.backbone(x)  # [ x8, x16, x32]
@@ -107,22 +108,25 @@ class PPLiteSegBase(nn.Module):
 class PPLiteSegHead(nn.Module):
     """
     The head of PPLiteSeg.
-
-    Args:
-        backbone_out_chs (List(Tensor)): The channels of output tensors in the backbone.
-        arm_out_chs (List(int)): The out channels of each arm module.
-        cm_bin_sizes (List(int)): The bin size of context module.
-        cm_out_ch (int): The output channel of the last context module.
-        arm_type (str): The type of attention refinement module.
-        resize_mode (str): The resize mode for the upsampling operation in decoder.
     """
 
-    def __init__(self, backbone_out_chs, arm_out_chs, cm_bin_sizes, cm_out_ch,
-                 arm_type, resize_mode,):
+    def __init__(self, backbone_out_chs:list[int], arm_out_chs:list[int],
+                  cm_bin_sizes:list[int], cm_out_ch:int,
+                  arm_type:str, resize_mode:str):
+        """
+        Args:
+        ---
+            backbone_out_chs (List[int]) : The channels of output tensors in the backbone.
+            arm_out_chs (List[int]) : The out channels of each arm module.
+            cm_bin_sizes (List[int]) : The bin size of context module.
+            cm_out_ch (int) : The output channel of the last context module.
+            arm_type (str) : The type of attention refinement module.
+            resize_mode (str) : The resize mode for the upsampling operation in decoder.
+        """
         super().__init__()
 
-        self.cm = PPContextModule(backbone_out_chs[-1], cm_out_ch, cm_out_ch,
-                                  cm_bin_sizes)
+        self.cm = PPContextModule(backbone_out_chs[-1], cm_out_ch, 
+                                  cm_out_ch, cm_bin_sizes)
 
         assert hasattr(layers,arm_type), \
             "Not support arm_type ({})".format(arm_type)
@@ -227,8 +231,9 @@ class PPContextModule(nn.Module):
 
 
 class SegHead(nn.Module):
-    def __init__(self, in_chan, mid_chan, n_classes, activation_f = "ReLU"):
+    def __init__(self, in_chan:int, mid_chan:int, n_classes:int, activation_f = "ReLU"):
         super().__init__()
+        
         self.conv = layers.ConvBlock(
             in_chan,
             mid_chan,

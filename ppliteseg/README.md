@@ -62,4 +62,4 @@ img credits: https://arxiv.org/pdf/2204.02681.pdf
 |**Model**|**Ref**|**Pretrained**|**Epochs**|**Iterations**|**mIoU**|**Accuracy**|**Weights**|
 |---|---|---|---|---|---|---|---|
 |**PP-LiteSeg-T**| mine | ImageNet | - | - | - | - | [[weights]()]|
-|**PP-LiteSeg-B**| mine | ImageNet | - | - | - | - |[[weights]()]|
+|**PP-LiteSeg-B**| mine | ImageNet | 121 | - | 0.6784 | 0.9190  |[[weights]()]|

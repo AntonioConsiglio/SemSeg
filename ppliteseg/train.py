@@ -22,7 +22,7 @@ TRAIN_TRANSFORM = A.Compose([
     A.VerticalFlip(),
     A.RandomBrightnessContrast(),
     A.RandomScale([-0.5,1],always_apply=True),
-    # A.Rotate((-30,30),border_mode=cv2.BORDER_CONSTANT),
+    A.Rotate((-30,30),border_mode=cv2.BORDER_CONSTANT),
     A.PadIfNeeded(min_height=IMG_SHAPE,min_width=IMG_SHAPE,border_mode=cv2.BORDER_CONSTANT),
     A.RandomCrop(IMG_SHAPE,IMG_SHAPE),
 ])
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                         callbacks.EVAL_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
                                                                             dataset = eval_dataloader.dataset,
                                                                             exec_batch_frequence=3,
-                                                                            exec_step_frequence=10,
+                                                                            exec_step_frequence=10,  
                                                                             num_images=9)]}
     
     # Create Trainer instance
