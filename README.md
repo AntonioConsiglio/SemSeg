@@ -22,7 +22,7 @@ Below is a list of architectures that will be implemented. Each architecture is 
 - [x] [BiSeNetV2](https://github.com/AntonioConsiglio/SemSeg/tree/main/bisenetv2) (2020)
 - [ ] [STDC-Seg](https://arxiv.org/pdf/2104.13188.pdf) (2021)
 - [ ] [SegFormer](https://arxiv.org/pdf/2104.13188.pdf) (2021)
-- [ ] [PPLiteSeg](https://arxiv.org/pdf/2204.02681.pdf) (2022)
+- [x] [PPLiteSeg](https://github.com/AntonioConsiglio/SemSeg/tree/main/ppliteseg) (2022)
 - [x] [RTFormer](https://github.com/AntonioConsiglio/SemSeg/tree/main/rtformer) (2022)
 
 ## 3) Setting up the Environment

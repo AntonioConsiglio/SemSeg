@@ -172,3 +172,5 @@ datasets.zip
 *.pt
 *.onnx
 *.tar
+*.engine
+test.py
