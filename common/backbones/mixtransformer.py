@@ -345,7 +345,7 @@ class MixFFN(nn.Module):
 
         self.embed_dims = embed_dims
         self.feedforward_channels = feedforward_channels
-        self.activate = getattr(nn,act_cfg) #nn.GELU()
+        self.activate = getattr(nn,act_cfg)() #nn.GELU()
 
         in_channels = embed_dims
         fc1 = nn.Conv2d(
