@@ -21,7 +21,7 @@ Below is a list of architectures that will be implemented. Each architecture is 
 - [ ] [Gated-SCNN](https://arxiv.org/pdf/1907.05740.pdf) (2019)
 - [x] [BiSeNetV2](https://github.com/AntonioConsiglio/SemSeg/tree/main/bisenetv2) (2020)
 - [ ] [STDC-Seg](https://arxiv.org/pdf/2104.13188.pdf) (2021)
-- [ ] [SegFormer](https://arxiv.org/pdf/2104.13188.pdf) (2021)
+- [x] [SegFormer](https://github.com/AntonioConsiglio/SemSeg/tree/main/segformer) (2021)
 - [x] [PPLiteSeg](https://github.com/AntonioConsiglio/SemSeg/tree/main/ppliteseg) (2022)
 - [x] [RTFormer](https://github.com/AntonioConsiglio/SemSeg/tree/main/rtformer) (2022)
 
