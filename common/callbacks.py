@@ -188,7 +188,6 @@ class VisualizeSegmPredCallback:
                                      step = epoch)
         
 
-
 class ContextManager():
     '''
         This class create the context of the training process
@@ -310,9 +309,6 @@ class ContextManager():
             return self._save_checkpoint(**kargs)
         
         
-
-
-
     def _train_batch_call(self,**kargs):
 
         pred, target = kargs["preds"],kargs["target"]
