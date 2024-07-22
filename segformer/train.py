@@ -12,6 +12,7 @@ import cv2
 
 from segformer.model import SegFormerB3
 import yaml
+import torch
 
 IMG_SHAPE = 320
 EVAL_SHAPE = 512
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     
     DEVICE = cfg.get("device",None)
     N_CLASSES = cfg.get("n_classes",21)
+    COMPILE = cfg.get("use_compile",False)
     train_cfg = cfg["training"]
     BATCH_SIZE = train_cfg.get("batch_size",4)
     NUM_WORK = train_cfg.get("num_worker",2)
@@ -71,6 +73,8 @@ if __name__ == "__main__":
     if train_cfg.get("lr_scheduler",False):
         for k,_ in train_cfg["lr_scheduler"].items():
             train_cfg["lr_scheduler"][k]["total_iters"] *= len(train_dataloader)
+            if "Warm" in k:
+                train_cfg["lr_scheduler"][k]["warm_up_iters"] *= len(train_dataloader)
 
     custom_callbacks = {callbacks.TRAIN_BATCH_END:[VisualizeSegmPredCallback(logger,N_CLASSES,
                                                                             dataset = eval_dataloader.dataset,
@@ -82,7 +86,9 @@ if __name__ == "__main__":
                                                                             exec_batch_frequence=3,
                                                                             exec_step_frequence=10,
                                                                             num_images=9)]}
-    
+    # Compile model to speed-up training
+    if COMPILE:
+        model = torch.compile(model)
     # Create Trainer instance
     trainer = TrainerSegFormer(model=model,logger=logger,cfg=cfg,device=DEVICE,
                               custom_callbacks=custom_callbacks)

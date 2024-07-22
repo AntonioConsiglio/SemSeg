@@ -144,6 +144,7 @@ class Trainer(BaseTrainer):
                                                                         self.context.best_metric)
 
             self.logger.info(final_text)
+            self.logger.info(f"GPU Memory reserved {torch.cuda.memory_reserved()/1e9:.2f} GB")
 
     def evaluate(self,val_loader:tqdm,
                  pretrained_weights = None,
@@ -177,12 +178,11 @@ class Trainer(BaseTrainer):
         self.model.train()
         self.context.optim.zero_grad()
         for batch,(images,target) in enumerate(dataloader):
-
             if self.max_iter is not None:
                 if (batch+1) + self.batch_iter*epoch > self.max_iter:
                     print("Max iter reached")
                     break
-            
+
             preds,train_loss,train_avg_metrics = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
             if self.custom_callbacks is not None: 
                 self.execute_custom_callback(callbacks.TRAIN_BATCH_END,images=images,target=target,preds=preds,
@@ -218,9 +218,9 @@ class Trainer(BaseTrainer):
         images,target = images.to(self.device),target.to(self.device)
         with torch.autocast(device_type=self.device,dtype=torch.bfloat16,enabled=self.autocast):
             preds = self.model(images)
-        if isinstance(preds,dict):
-            preds = preds["out"]
-        loss,_,avg_metrics = self.context(callback,preds = preds, target = target)
+            if isinstance(preds,dict):
+                preds = preds["out"]
+            loss,_,avg_metrics = self.context(callback,preds = preds, target = target)
          
         return preds,loss,avg_metrics
     

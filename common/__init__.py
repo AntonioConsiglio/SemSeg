@@ -11,3 +11,4 @@ def set_all_seeds(seed=12345):
     random.seed(seed)
     numpy.random.seed(seed)
     torch.manual_seed(seed)
+    if torch.cuda.is_available(): torch.cuda.manual_seed(seed)

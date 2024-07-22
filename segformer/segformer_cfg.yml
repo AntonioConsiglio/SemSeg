@@ -4,6 +4,7 @@ epochs: 600
 checkpoint_step: 50
 validate_after: 1
 autocast: False
+use_compile: False
 n_classes: 21
 device: "cuda"
 eval_checkpoint: /projects/SemSeg/logs/SegFormer/20240530_122750_Second_expB3/checkpoints/best.pt
@@ -39,7 +40,12 @@ training:
 #       lr: 1.0e-4
 
   lr_scheduler:
-    PolynomialLR: 
+    # PolynomialLR: 
+    #   total_iters: 600
+    #   power: 0.9
+    
+    WarmUpPolynomialLR:
+      warm_up_iters: 5 
       total_iters: 600
       power: 0.9
 
