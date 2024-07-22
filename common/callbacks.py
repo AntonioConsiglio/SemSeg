@@ -12,6 +12,7 @@ from common.backbones.vgg import VGGExtractor
 import cv2
 import numpy as np
 import random
+import common.utils as utils
 
 AVOID_HOOKS = (
     torch.nn.Sequential,
@@ -208,7 +209,7 @@ class ContextManager():
         self.checkpoint_step = cfg.get("checkpoint_step",10) # step for training checkpoint saving
         self.autocast = cfg.get("autocast",True)
         n_classes = cfg.get("n_classes",None)
-        self.scaler = GradScaler(enabled=self.autocast)
+        self.scaler = GradScaler(enabled=False)
 
         training_cfg = cfg.get("training")
         loss_function = training_cfg.get("loss_function",None)
@@ -536,7 +537,12 @@ class ContextManager():
     def _get_lr_scheduler(self,lr_config):
         if lr_config is not None:
             for lr_scheduler,params in lr_config.items():
-                lr_class = getattr(torch.optim.lr_scheduler,lr_scheduler)
+                lr_class = None
+                try:
+                    lr_class = getattr(torch.optim.lr_scheduler,lr_scheduler)
+                except:
+                    lr_class = getattr(utils,lr_scheduler)
+                assert lr_class is not None, f"LR class {lr_scheduler} does not exist!"
                 lr_scheduler = lr_class(self.optim,**params)
                 return lr_scheduler
         

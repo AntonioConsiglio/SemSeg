@@ -176,48 +176,48 @@ class Trainer(BaseTrainer):
 
         self.model.train()
         self.context.optim.zero_grad()
-        
-        with torch.cuda.amp.autocast(enabled=self.autocast):
-            for batch,(images,target) in enumerate(dataloader):
+        for batch,(images,target) in enumerate(dataloader):
 
-                if self.max_iter is not None:
-                    if (batch+1) + self.batch_iter*epoch > self.max_iter:
-                        print("Max iter reached")
-                        break
-                
-                preds,train_loss,train_avg_metrics = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
-                if self.custom_callbacks is not None: 
-                    self.execute_custom_callback(callbacks.TRAIN_BATCH_END,images=images,target=target,preds=preds,
-                                                 epoch=self.epoch,batch=batch,stage="Train")
-
-                dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
-
+            if self.max_iter is not None:
+                if (batch+1) + self.batch_iter*epoch > self.max_iter:
+                    print("Max iter reached")
+                    break
+            
+            preds,train_loss,train_avg_metrics = self.execute_batch(callbacks.TRAIN_BATCH_END,images,target)
             if self.custom_callbacks is not None: 
-                self.execute_custom_callback(callbacks.TRAIN_EPOCH_END,images=images,target=target,preds=preds,
-                                             epoch=self.epoch,batch=None,stage="Train")
+                self.execute_custom_callback(callbacks.TRAIN_BATCH_END,images=images,target=target,preds=preds,
+                                                epoch=self.epoch,batch=batch,stage="Train")
+
+            dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
+
+        if self.custom_callbacks is not None: 
+            self.execute_custom_callback(callbacks.TRAIN_EPOCH_END,images=images,target=target,preds=preds,
+                                            epoch=self.epoch,batch=None,stage="Train")
 
     def evaluate_epoch(self,dataloader:tqdm,save_image=False):
         
         self.model.eval()
 
         with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=self.autocast):
-                for batch,(images,target) in enumerate(dataloader):
+            # with torch.cuda.amp.autocast(enabled=self.autocast,dtype=torch.bfloat16):
+            # with torch.autocast(device_type=self.device,dtype=torch.bfloat16,enabled=self.autocast):
+            for batch,(images,target) in enumerate(dataloader):
 
-                    preds,val_loss,val_avg_metrics = self.execute_batch(callbacks.EVAL_BATCH_END,images,target)
-                    if self.custom_callbacks is not None: 
-                        self.execute_custom_callback(callbacks.EVAL_BATCH_END,images=images,target=target.clone(),preds=preds,
-                                                     epoch=self.epoch,batch=batch,stage="Eval")
-
+                preds,val_loss,val_avg_metrics = self.execute_batch(callbacks.EVAL_BATCH_END,images,target)
                 if self.custom_callbacks is not None: 
-                    self.execute_custom_callback(callbacks.EVAL_EPOCH_END,images=images,target=target,preds=preds,
-                                                 epoch=self.epoch,batch=None,stage="Eval")
+                    self.execute_custom_callback(callbacks.EVAL_BATCH_END,images=images,target=target.clone(),preds=preds,
+                                                epoch=self.epoch,batch=batch,stage="Eval")
+
+            if self.custom_callbacks is not None: 
+                self.execute_custom_callback(callbacks.EVAL_EPOCH_END,images=images,target=target,preds=preds,
+                                            epoch=self.epoch,batch=None,stage="Eval")
                 # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
     def execute_batch(self,callback,images,target):
 
         images,target = images.to(self.device),target.to(self.device)
-        preds = self.model(images)
+        with torch.autocast(device_type=self.device,dtype=torch.bfloat16,enabled=self.autocast):
+            preds = self.model(images)
         if isinstance(preds,dict):
             preds = preds["out"]
         loss,_,avg_metrics = self.context(callback,preds = preds, target = target)

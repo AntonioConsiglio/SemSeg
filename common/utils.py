@@ -2,7 +2,34 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import transforms
+import warnings
 
+class WarmUpPolynomialLR(torch.optim.lr_scheduler.LRScheduler):
+    def __init__(self, optimizer,warm_up_iters=1, start_factor=0.1 ,total_iters=5, power=1.0, last_epoch=-1):
+        self.total_iters = total_iters - warm_up_iters
+        self.warm_up_iters = warm_up_iters
+        self.power = power
+        self.start_factor = start_factor
+        self.end_factor = 1.0
+        super().__init__(optimizer, last_epoch)
+         
+
+    def get_lr(self):
+        if not self._get_lr_called_within_step:
+            warnings.warn("To get the last learning rate computed by the scheduler, "
+                            "please use `get_last_lr()`.", UserWarning)
+        
+        if self.last_epoch == 0:
+            return [group['lr'] * self.start_factor for group in self.optimizer.param_groups]
+        
+        elif self.warm_up_iters > self.last_epoch:
+            return [group['lr'] * (1. + (self.end_factor - self.start_factor) /
+                (self.warm_up_iters * self.start_factor + (self.last_epoch - 1) * (self.end_factor - self.start_factor)))
+                for group in self.optimizer.param_groups]  
+
+        decay_factor = ((1.0 - (self.last_epoch - self.warm_up_iters) / self.total_iters) / (1.0 - (self.last_epoch - self.warm_up_iters - 1) / self.total_iters)) ** self.power
+        return [group["lr"] * decay_factor for group in self.optimizer.param_groups]
+    
 
 # import matplotlib.pyplot as plt
 class PadIfNeeded(transforms.RandomHorizontalFlip):
