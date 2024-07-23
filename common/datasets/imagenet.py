@@ -1,4 +1,4 @@
-from .pascalvoc import BaseDataset
+from .pascalvoc import BaseDataset,BaseDataloader
 from torch.utils.data import Dataset,DataLoader
 from abc import ABC,abstractmethod
 # import kornia as K
@@ -26,7 +26,7 @@ IMAGENET_TRANSFORM = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-class ImageNetataloader(DataLoader):
+class ImageNetataloader(BaseDataloader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,
                  transform=None,pin_memory:bool = False) -> DataLoader:
         

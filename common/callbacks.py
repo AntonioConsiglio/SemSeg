@@ -207,9 +207,10 @@ class ContextManager():
 
         self.task = cfg.get("task","segmentation")
         self.checkpoint_step = cfg.get("checkpoint_step",10) # step for training checkpoint saving
-        self.autocast = cfg.get("autocast",True)
+        self.autocast = cfg.get("autocast",False)
+        self.autocast_dtype = getattr(torch,cfg.get("autocast_dtype","bfloat16"))
         n_classes = cfg.get("n_classes",None)
-        self.scaler = GradScaler(enabled=False)
+        self.scaler = GradScaler(enabled=(self.autocast and self.autocast_dtype is torch.float16))
 
         training_cfg = cfg.get("training")
         loss_function = training_cfg.get("loss_function",None)

@@ -51,7 +51,14 @@ PASCALVOC_TRANSFORM = A.Compose([
     # A.GridDistortion(),
 ])
 
-class AUGSBDVocDataloader(DataLoader):
+class BaseDataloader(DataLoader):
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+    
+    def __repr__(self):
+        return self.dataset.__repr__(self)
+
+class AUGSBDVocDataloader(BaseDataloader):
     def __init__(self,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
@@ -62,8 +69,6 @@ class AUGSBDVocDataloader(DataLoader):
                         mean = (0.485, 0.456, 0.406) if not caffe_pretrained else (123.68 / 255, 116.799 / 255, 103.949 / 255 ), #VGG16_Weights.IMAGENET1K
                         std = (0.229, 0.224, 0.225) if not caffe_pretrained else (1 / 255,1 / 255, 1 / 255 ), #VGG16_Weights.IMAGENET1K
                         caffe_pretrained=caffe_pretrained)
-        
-        print(len(dataset))
 
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
@@ -71,8 +76,10 @@ class AUGSBDVocDataloader(DataLoader):
                          pin_memory=pin_memory,
                          shuffle=True,
                          drop_last=True)
+        print(self)
+    
 
-class SBDDataloader(DataLoader):
+class SBDDataloader(BaseDataloader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
@@ -91,7 +98,7 @@ class SBDDataloader(DataLoader):
                          drop_last=True)
     
         
-class PascalDataloader(DataLoader):
+class PascalDataloader(BaseDataloader):
     def __init__(self,train:bool=True,batch_size:int = 1, num_workers:int = 0,transform:A.Compose = None,
                  pin_memory:bool = False,caffe_pretrained = False) -> DataLoader:
         
@@ -114,12 +121,26 @@ class BaseDataset(Dataset):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self.text_pad = 18
     
     def get_color_map(self):
         if hasattr(self,"colormap_dict"):
             return deepcopy(self.colormap_dict)
         else:
             return None
+    
+    def __repr__(self,dataloader=None):
+        if dataloader is None: return super().__repr__()
+        return (
+        f"\nDATALOADER INFO ({dataloader.__class__.__name__}):\n"
+        f"{'Dataset class':<{self.text_pad}}: {self.__class__.__name__}\n"
+        f"{'Dataset len':<{self.text_pad}}: {len(self)}\n"
+        f"{'Number of workers':<{self.text_pad}}: {dataloader.num_workers}\n"
+        f"{'Batch size':<{self.text_pad}}: {dataloader.batch_size}\n"
+        f"{'Number of batches':<{self.text_pad}}: {len(dataloader)}\n"
+        f"{'Pinned memory':<{self.text_pad}}: {dataloader.pin_memory}\n"
+        )
+
 
     @classmethod
     def _get_mean_std(cls,root):

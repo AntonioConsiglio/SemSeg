@@ -6,9 +6,12 @@ import cv2
 import numpy as np
 import yaml
 import torchvision
+import sys
 #os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 from torch.utils.tensorboard import SummaryWriter
-
+from tqdm import tqdm
+import inspect
+import io
 
 LOG_LEVELS ={
     "debug":logging.DEBUG,
@@ -17,16 +20,86 @@ LOG_LEVELS ={
     "error":logging.ERROR
 }
 
+# Create a custom filter class to filter log records
+class LevelFilter(logging.Filter):
+    def __init__(self, level):
+        super().__init__()
+        self.level = level if isinstance(level,list) else [level]
+
+    def filter(self, record):
+        # Return True if the log level matches
+        return record.levelno in self.level
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+    """
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        temp_linebuf = self.linebuf + buf
+        self.linebuf = ''
+        for line in temp_linebuf.splitlines(True):
+            if line[-1] == '\n':
+                frame = inspect.currentframe()
+                caller_frame = frame.f_back
+                caller_class = caller_frame.f_locals.get('cls', None)
+                if caller_class is tqdm:
+                    self.logger.log(logging.DEBUG, line.rstrip())
+                else:
+                    self.logger.log(self.log_level, line.rstrip())
+            else:
+                self.linebuf += line
+
+    def flush(self):
+        if self.linebuf != '':
+            self.logger.log(self.log_level, self.linebuf.rstrip())
+        self.linebuf = ''
+    
+class StdErrorToLogger(StreamToLogger):
+
+    def __init__(self,logger):
+        super().__init__(logger,logging.WARNING)
+        self._lock = tqdm.get_lock()
+        self.writer = io.TextIOWrapper(sys.stderr.buffer)
+
+    def write(self, buf):
+        temp_linebuf = self.linebuf + buf
+        self.linebuf = ''
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back
+        caller_class = caller_frame.f_locals.get('tqdm_instance', None)
+        if caller_class:
+            with self._lock:
+                self.writer.write(buf)
+            return
+        for line in temp_linebuf.splitlines(True):
+            if line[-1] == '\n':
+                self.logger.log(self.log_level, line.rstrip())
+            else:
+                self.linebuf += line
+    
+    def flush(self):
+        self.writer.flush()
+
 class TrainLogger():
     def __init__(self,model_name:str,
                  exp_name:str = None, 
-                 log_lvl:str = "debug",
+                 log_lvl:str = "info",
                  log_dir:str ="./logs") -> None:
 
         self.log_dir = self._get_example_folder(log_dir,model_name,exp_name)
         self.logger = self._create_logger(log_lvl,self.log_dir)
         self.tb_writer = SummaryWriter(log_dir=self.log_dir)
-
+        wrapped_logger = StreamToLogger(self.logger)
+        wrapped_stderr = StdErrorToLogger(self.logger)
+        sys.stdout = wrapped_logger
+        encoding = sys.stderr.encoding
+        setattr(wrapped_stderr,"encoding",encoding)
+        sys.stderr = wrapped_stderr
     
     def _get_example_folder(self,log_dir,model_name,exp_name):
         data = datetime.today().strftime("%Y%m%d_%H%M%S")
@@ -38,20 +111,26 @@ class TrainLogger():
 
     def _create_logger(self,log_level,logdir):
         #create logger obj
-        logger = logging.Logger(name="train_logger")
+        logger = logging.Logger(name="train_logger",level=logging.DEBUG)
         # create file handler which logs even debug messages
         fh = logging.FileHandler(os.path.join(logdir,"logger.log"))
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(logging.WARNING)
+        # create file handler which logs Tqdm messages
+        tqdmfh = logging.FileHandler(os.path.join(logdir,"logger.log"))
+        tqdmfh.setLevel(logging.DEBUG)
+        tqdmfh.addFilter(LevelFilter([logging.DEBUG,logging.INFO]))
         # create console handler with a higher log level
         ch = logging.StreamHandler()
         ch.setLevel(LOG_LEVELS[log_level])
+        
         # create formatter and add it to the handlers
-        formatter = logging.Formatter('%(asctime)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s')
         fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
+        # ch.setFormatter(formatter)
         # add the handlers to the logger
         logger.addHandler(fh)
         logger.addHandler(ch)
+        logger.addHandler(tqdmfh)
 
         return logger
 

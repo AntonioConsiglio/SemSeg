@@ -9,10 +9,9 @@ import torch
 
 from common.callbacks import ContextManager,callbacks
 from common.logger import TrainLogger
-from common.utils import PadIfNeeded
+import common.utils as utils
 
 import matplotlib.pyplot as plt
-
 
 class BaseTrainer(ABC):
     def __init__(self):
@@ -73,6 +72,8 @@ class Trainer(BaseTrainer):
         self.device = device
         if self.device is None: self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.autocast = cfg.get("autocast",False)
+        self.autocast_dtype = getattr(torch,cfg.get("autocast_dtype","bfloat16"))
+        # if self.autocast: torch.set_float32_matmul_precision("medium")
         # Create the context instance that handle training callbacks
         self.context = ContextManager(self.model,self.logger,
                                       self.cfg,self.device,
@@ -100,7 +101,7 @@ class Trainer(BaseTrainer):
             start_epoch = self._load_checkpoint(checkpoint)
         
         self.max_iter = max_iter
-        self.batch_iter = len(train_loader)    
+        self.batch_iter = len(train_loader)   
 
         for epoch in range(start_epoch,epochs):
             
@@ -132,19 +133,10 @@ class Trainer(BaseTrainer):
 
             self.context(callbacks.EPOCH_END,**eval_avg_metrics)
 
-            final_text = "EPOCH {}: \n\
-                                Train_loss: {:.4f} - Eval_loss: {:.4f}, \n\
-                                Train mIou : {:.4f} - Eval mIoU : {:.4f}, \n\
-                                Train Acc: {:.4f} - Eval Acc: {:.4f} \n\
-                                Best Score: {:.4f} ".format(epoch,train_loss,eval_loss,
-                                                                     train_avg_metrics["iou"],
-                                                                      eval_avg_metrics["iou"],
-                                                                       train_avg_metrics["accuracy"],
-                                                                        eval_avg_metrics["accuracy"],
-                                                                        self.context.best_metric)
-
-            self.logger.info(final_text)
-            self.logger.info(f"GPU Memory reserved {torch.cuda.memory_reserved()/1e9:.2f} GB")
+            utils.write_epoch_table(epoch,self.context.best_metric,
+                                    train_loss,train_avg_metrics,
+                                    eval_loss,eval_avg_metrics)
+            print(f"GPU Memory reserved {torch.cuda.memory_reserved()/1e9:.2f} GB")
 
     def evaluate(self,val_loader:tqdm,
                  pretrained_weights = None,
@@ -189,6 +181,7 @@ class Trainer(BaseTrainer):
                                                 epoch=self.epoch,batch=batch,stage="Train")
 
             dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
+        tqdm.write(dataloader.__str__())
 
         if self.custom_callbacks is not None: 
             self.execute_custom_callback(callbacks.TRAIN_EPOCH_END,images=images,target=target,preds=preds,
@@ -199,20 +192,20 @@ class Trainer(BaseTrainer):
         self.model.eval()
 
         with torch.no_grad():
-            # with torch.cuda.amp.autocast(enabled=self.autocast,dtype=torch.bfloat16):
-            # with torch.autocast(device_type=self.device,dtype=torch.bfloat16,enabled=self.autocast):
             for batch,(images,target) in enumerate(dataloader):
 
                 preds,val_loss,val_avg_metrics = self.execute_batch(callbacks.EVAL_BATCH_END,images,target)
                 if self.custom_callbacks is not None: 
                     self.execute_custom_callback(callbacks.EVAL_BATCH_END,images=images,target=target.clone(),preds=preds,
                                                 epoch=self.epoch,batch=batch,stage="Eval")
+            tqdm.write(dataloader.__str__())
 
             if self.custom_callbacks is not None: 
                 self.execute_custom_callback(callbacks.EVAL_EPOCH_END,images=images,target=target,preds=preds,
                                             epoch=self.epoch,batch=None,stage="Eval")
                 # dataloader.set_postfix(loss = train_loss,mIoU = train_avg_metrics.get("iou",0), Accuracy = train_avg_metrics.get("accuracy",0))
 
+    # @utils.timeit(n_iters=10)
     def execute_batch(self,callback,images,target):
 
         images,target = images.to(self.device),target.to(self.device)
@@ -300,7 +293,7 @@ class Trainer(BaseTrainer):
             self.model.load_state_dict(pweights)
 
         if AUGMENT:
-            self.augmenter = PadIfNeeded(p=1,min_height=minwh,min_width=minwh)
+            self.augmenter = utils.PadIfNeeded(p=1,min_height=minwh,min_width=minwh)
 
         self.model.to(self.device)
 

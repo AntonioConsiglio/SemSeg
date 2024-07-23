@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import transforms
 import warnings
+import time
+import functools
 
 class WarmUpPolynomialLR(torch.optim.lr_scheduler.LRScheduler):
     def __init__(self, optimizer,warm_up_iters=1, start_factor=0.1 ,total_iters=5, power=1.0, last_epoch=-1):
@@ -119,3 +121,61 @@ def nlc_to_nchw(x, hw_shape):
     return x.transpose(1, 2).reshape(B, C, H, W)
 
 
+def write_epoch_table(epoch,best_metric,
+                      train_loss,train_avg_metrics,
+                      eval_loss,eval_avg_metrics):
+    # Table headers
+    headers = ["", "Loss", "mIoU", "Acc_"]
+    # Data rows
+    train_row = ["Train", f"{train_loss:.4f}", f"{train_avg_metrics['iou']:.4f}", f"{train_avg_metrics['accuracy']:.4f}"]
+    eval_row = ["Eval", f"{eval_loss:.4f}", f"{eval_avg_metrics['iou']:.4f}", f"{eval_avg_metrics['accuracy']:.4f}"]
+    
+    # Calculate the maximum width for each column
+    column_widths = [max(len(header), len(train), len(eval)) for header, train, eval in zip(headers, train_row, eval_row)] 
+
+    # Function to format a row
+    def format_row(row):
+        return " | ".join(f"{cell:<{width}}" for cell, width in zip(row, column_widths))
+
+    title = f"EPOCH {epoch}"
+    header_w = (sum(column_widths) + (len(column_widths)-1)*2 - len(title)) // 2 
+    division_line = "-"*header_w
+    first_line = f"/{division_line} {title} {division_line}/\n"
+    line_separator = "-+-".join("-" * width for width in column_widths)
+    #columns row
+    headers = format_row(headers)
+    #table rows
+    train_row = (format_row(train_row))
+    eval_row = (format_row(eval_row))
+    # Create table
+    table = "\n".join([first_line,headers,line_separator,train_row,eval_row])
+    # Print the table
+    print(table)
+    print(f"\nBest Eval Score: {best_metric:.4f}")
+
+def timeit(n_iters=10):
+    def decorator(func):
+        count = -1  # This will keep track of the number of calls to the decorated function
+        elapsed = 0
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            nonlocal count
+            nonlocal elapsed
+            count += 1
+
+            if count > 0:
+                start = time.time()
+                result = func(*args, **kwargs)
+                torch.cuda.synchronize()
+                elapsed += time.time() - start
+                if count % n_iters == 0:
+                    print(f"\nElapsed time for {func.__name__} averaged on {n_iters} iterations: {elapsed/count*1000:.1f} ms")
+            else:
+                result = func(*args, **kwargs)
+
+            return result
+        
+        return wrapper
+    
+    return decorator
